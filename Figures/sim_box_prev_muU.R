@@ -33,6 +33,7 @@ est_box = res |>
                     name = "Method:") + 
   facet_wrap(~N) + 
   theme_minimal(base_size = 40) + 
+  scale_y_continuous(labels = scales::percent) + 
   xlab(label = latex2exp::TeX(input = "Additive Error Mean ($\\mu_U$)")) + 
   ylab(label = latex2exp::TeX(input = "Estimated Baseline Prevalence ($\\exp(\\hat{\\beta}_0)$)")) + 
   theme(legend.position = "top", 
