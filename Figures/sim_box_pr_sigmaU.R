@@ -12,7 +12,8 @@ res = do.call(what = rbind,
 )
 
 # Define color palette 
-slide_colors = c("#C3CFFA", "#C9B0B0", "#DD6D53", "#60CAD6", "#F0D290", "#fac3cf") 
+# slide_colors = c("#C3CFFA", "#C9B0B0", "#DD6D53", "#60CAD6", "#F0D290", "#fac3cf") 
+slide_colors = c("#F2958D", "#ADA264", "#EB5F3F", "#3A5724", "#FAB825", "#E67B33") 
 
 # Create boxplot of estimated 
 est_box = res |> 
