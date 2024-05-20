@@ -152,8 +152,7 @@ for (N in c(390, 2200)) {
                             X_val = "binX", 
                             Validated = "V", 
                             Bspline = colnames(B), 
-                            data = dat, 
-                            noSE = TRUE)
+                            data = dat)
       sett_res[r, c("beta0_smle", "beta1_smle")] = fit_smle$coeff$coeff ## estimated log prevalence ratio
       sett_res[r, c("se_beta0_smle", "se_beta1_smle")] = fit_smle$coeff$se ## and its standard error
       
