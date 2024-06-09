@@ -9,6 +9,9 @@
 library(possum) ## for SMLE
 library(tictoc) ## to calculate runtime
 
+# Set working directory 
+setwd("~/Documents/food_access_misclassification/Simulations/")
+
 # Random seed to be used for each simulation setting
 sim_seed = 11422
 
@@ -87,7 +90,7 @@ for (N in c(390, 2200)) {
       beta0_gs = NA, se_beta0_gs = NA, beta1_gs = NA, se_beta1_gs = NA, ## gold standard analysis
       beta0_n = NA, se_beta0_n = NA, beta1_n = NA, se_beta1_n = NA, ## naive analysis
       beta0_cc = NA, se_beta0_cc = NA, beta1_cc = NA, se_beta1_cc = NA, ## complete case analysis
-      beta0_smle = NA, se_beta0_smle = NA, beta1_smle = NA, se_beta1_smle = NA ## imputation analysis
+      beta0_smle = NA, se_beta0_smle = NA, beta1_smle = NA, se_beta1_smle = NA, ppv_smle = NA ## SMLE analysis
     )
     
     # Loop over replicates 
@@ -138,23 +141,14 @@ for (N in c(390, 2200)) {
       
       # Fit the SMLE
       ## Setup the B-splines (just a placeholder for the nonparametric estimator)
-      B = matrix(data = 0, 
-                 nrow = nrow(dat), 
-                 ncol = 2)
-      B[, 1] = as.numeric(dat[, "binXstar"] == 1)
-      B[, 2] = as.numeric(dat[, "binXstar"] == 0)
-      colnames(B) = paste0("bs", 1:2)
-      dat = cbind(dat, B)
-      dat$V = as.numeric(dat$id %in% query_rows)
       fit_smle = smlePossum(Y = "Cases", 
                             offset = "P", 
                             X_unval = "binXstar", 
-                            X_val = "binX", 
-                            Validated = "V", 
-                            Bspline = colnames(B), 
+                            X = "binX", 
                             data = dat)
       sett_res[r, c("beta0_smle", "beta1_smle")] = fit_smle$coeff$coeff ## estimated log prevalence ratio
       sett_res[r, c("se_beta0_smle", "se_beta1_smle")] = fit_smle$coeff$se ## and its standard error
+      sett_res[r, "ppv_smle"] = fit_smle$ppv ## positive predictive value
       
       # Save results
       write.csv(x = sett_res,
@@ -166,5 +160,5 @@ for (N in c(390, 2200)) {
 }
 
 # Timing from tictoc:
-## Sims with N = 390: 214.262 sec elapsed
+## Sims with N = 390: 234.862 sec elapsed
 ## Sims with N = 2200: 527.373 sec elapsed
