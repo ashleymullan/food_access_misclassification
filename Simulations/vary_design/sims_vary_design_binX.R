@@ -211,5 +211,5 @@ for (N in c(390, 2200)) {
 }
 
 # Timing from tictoc:
-## Sims with N = 390: 154.936 sec elapsed
+## Sims with N = 390: 603.57 sec elapsed
 ## Sims with N = 2200: 528.144 sec elapsed
