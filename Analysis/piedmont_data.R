@@ -33,7 +33,7 @@ food_access = food_access |>
 food_access = food_access |> 
   dplyr::select(LocationID, CountyName, ### keep neighborhood identifiers, 
                 binX_full, binXstar, ### food access indicators,
-                PopulationDensity, ### additional covariate,
+                LandArea, PopulationDensity, ### additional covariates,
                 POP, DIABETES) ### and outcome (with offset).
 
 ## Order by Location ID
