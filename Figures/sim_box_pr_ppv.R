@@ -3,12 +3,12 @@ library(ggplot2)
 
 # Read simulation data in from GitHub repo
 #url_stem = "https://raw.githubusercontent.com/ashleymullan/food_access_misclassification/main/Simulations/vary_q/"
-url_stem = "~/Documents/food_access_misclassification/Simulations/vary_q/"
+url_stem = "~/Documents/food_access_misclassification/Simulations/vary_ppv/"
 file_url = paste0(url_stem, 
                   "proximity_N", 
                   rep(c(390, 2200), each = 4), 
-                  "_q", 
-                  rep(c(10, 25, 50, 75), times = 2), 
+                  "_ppv", 
+                  rep(c(50, 60, 80, 90), times = 2), 
                   "_seed11422.csv")
 res = do.call(what = rbind, 
               args = lapply(X = file_url, 
@@ -17,9 +17,8 @@ res = do.call(what = rbind,
 
 # Create summary of results
 res |> 
-  dplyr::group_by(N, q) |> 
+  dplyr::group_by(N, ppv) |> 
   dplyr::summarize(avg_fpr = mean(fpr), 
-                   avg_ppv = mean(ppv),
                    bias_beta0_gs = mean(beta0_gs - beta0), 
                    ese_beta0_gs = sd(beta0_gs), 
                    bias_beta1_gs = mean(beta1_gs - beta1), 
@@ -44,7 +43,7 @@ res |>
                    re_beta1_smle = var(beta1_gs) / var(beta1_smle),
                    bias_ppv_smle = mean(ppv_smle - ppv)
                    ) |> 
-  write.csv("~/Documents/food_access_misclassification/Simulations/sims_vary_q_binX_summary.csv", 
+  write.csv("~/Documents/food_access_misclassification/Simulations/sims_vary_ppv_binX_summary.csv", 
             row.names = FALSE)
 
 # Define color palette 
@@ -53,7 +52,7 @@ slide_colors = c("#F2958D", "#ADA264", "#EB5F3F", "#3A5724", "#FAB825", "#E67B33
 # Create boxplot of estimated prevalence ratio
 est_box = res |> 
   dplyr::filter(N == 390) |> 
-  dplyr::select(sim, N, beta1, q, dplyr::starts_with("beta1_")) |> 
+  dplyr::select(sim, N, beta1, ppv, dplyr::starts_with("beta1_")) |> 
   tidyr::gather(key = "Method", value = "est_beta1", -c(1:4)) |> 
   dplyr::mutate(Method = factor(x = Method, 
                                 levels = c("beta1_gs", "beta1_smle", "beta1_cc", "beta1_n"), 
@@ -61,7 +60,7 @@ est_box = res |>
                 N = factor(x = N, 
                            levels = c(390, 2200), 
                            labels = c("N = 390", "N = 2200"))) |> 
-  ggplot(aes(x = factor(q), y = exp(est_beta1), fill = Method)) + 
+  ggplot(aes(x = factor(ppv), y = exp(est_beta1), fill = Method)) + 
   geom_hline(aes(yintercept = exp(beta1)), 
              linetype = 2, 
              color = "darkgrey") + 
@@ -71,7 +70,7 @@ est_box = res |>
                     guide = "none") + 
   facet_wrap(~N) + 
   theme_minimal(base_size = 20) + 
-  xlab(label = latex2exp::TeX(input = "Proportion of Neighborhoods Queried")) + 
+  xlab(label = latex2exp::TeX(input = "Positive Predictive Value of X*")) + 
   ylab(label = latex2exp::TeX(input = "Estimated Prevalence Ratio")) + 
   theme(legend.position = "right", 
         legend.box.margin = margin(t = 10, r = 5, b = -30, l = 5), 
@@ -80,7 +79,7 @@ est_box = res |>
   guides(fill = "none") #guide_legend(nrow=2, byrow=TRUE)) 
 
 # Save it 
-ggsave(filename = "~/Documents/food_access_misclassification/Figures/sim_box_pr_q_N390.png",
+ggsave(filename = "~/Documents/food_access_misclassification/Figures/sim_box_ppv_q_N390.png",
        plot = est_box, 
        device = "png", 
        width = 7, 
@@ -88,7 +87,7 @@ ggsave(filename = "~/Documents/food_access_misclassification/Figures/sim_box_pr_
 
 est_box = res |> 
   dplyr::filter(N == 2200) |> 
-  dplyr::select(sim, N, beta1, q, dplyr::starts_with("beta1_")) |> 
+  dplyr::select(sim, N, beta1, ppv, dplyr::starts_with("beta1_")) |> 
   tidyr::gather(key = "Method", value = "est_beta1", -c(1:4)) |> 
   dplyr::mutate(Method = factor(x = Method, 
                                 levels = c("beta1_gs", "beta1_smle", "beta1_cc", "beta1_n"), 
@@ -96,7 +95,7 @@ est_box = res |>
                 N = factor(x = N, 
                            levels = c(390, 2200), 
                            labels = c("N = 390", "N = 2200"))) |> 
-  ggplot(aes(x = factor(q), y = exp(est_beta1), fill = Method)) + 
+  ggplot(aes(x = factor(ppv), y = exp(est_beta1), fill = Method)) + 
   geom_hline(aes(yintercept = exp(beta1)), 
              linetype = 2, 
              color = "darkgrey") + 
@@ -106,7 +105,7 @@ est_box = res |>
                     guide = "none") + 
   facet_wrap(~N) + 
   theme_minimal(base_size = 20) + 
-  xlab(label = latex2exp::TeX(input = "Proportion of Neighborhoods Queried")) + 
+  xlab(label = latex2exp::TeX(input = "Positive Predictive Value of X*")) + 
   ylab(label = latex2exp::TeX(input = "Estimated Prevalence Ratio")) + 
   theme(legend.position = "right", 
         legend.box.margin = margin(t = 10, r = 5, b = -30, l = 5), 
@@ -115,7 +114,7 @@ est_box = res |>
   guides(fill = "none") #guide_legend(nrow=2, byrow=TRUE)) 
 
 # Save it 
-ggsave(filename = "~/Documents/food_access_misclassification/Figures/sim_box_pr_q_N2200.png",
+ggsave(filename = "~/Documents/food_access_misclassification/Figures/sim_box_pr_ppv_N2200.png",
        plot = est_box, 
        device = "png", 
        width = 7, 
