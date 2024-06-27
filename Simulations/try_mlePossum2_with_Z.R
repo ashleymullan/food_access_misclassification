@@ -36,21 +36,21 @@ fix_q = 0.1 ## proportion of neighborhoods queried
 ## eta1 = log odds ratio of land area on access
 # ---------------------------------------------------------------------------------
 sim_data = function(N, beta0 = fix_beta0, beta1 = fix_beta1, beta2 = fix_beta2, eta0, eta1 = fix_eta1) {
+  ## Simulate land area
+  Z = rgamma(n = N, 
+             shape = 0.6, 
+             scale = 0.2)
+  
   ## Simulate straight-line access
   binXstar = rbinom(n = N, 
                     size = 1, 
-                    prob = 0.5)
-  
-  ## Simulate land area
-  Z = rgamma(n = N, 
-             shape = 1, 
-             scale = 0.26 - 0.2 * binXstar)
+                    prob = 1 / (1 + exp(- (1 - Z))))
   
   ## Simulate map-based access
   binX = binXstar
   binX[binXstar == 1] = rbinom(n = sum(binXstar == 1), 
                                size = 1, 
-                               prob = 1 / (1 + exp(- (eta0 + eta1 * Z))))
+                               prob = 1 / (1 + exp(- (eta0 + eta1 * Z[binXstar == 1]))))
   
   ## Simulate population
   P = rpois(n = N, 
@@ -177,5 +177,5 @@ for (N in c(390, 2200)) {
 }
 
 # Timing from tictoc:
-# Sims with N = 390: 312.785 sec elapsed
-# Sims with N = 2200: 919.431 sec elapsed
+# Sims with N = 390: 325.403 sec elapsed
+# Sims with N = 2200: 1081.062 sec elapsed
