@@ -72,7 +72,7 @@ sim_data = function(N, beta0 = fix_beta0, beta1 = fix_beta1, beta2 = fix_beta2, 
 for (N in c(390, 2200)) {
   tic(paste("Sims with N =", N)) ## Start counting runtime for sims with current sample size N
   # And proportion to be queried for complete case/imputation analyses: 0.1, 0.25, 0.5, 0.75
-  for (ppv in c(0.5, 0.6, 0.8, 0.9)){
+  for (ppv in c(0.5, 0.6, 0.7, 0.8, 0.9)){
     # Be reproducible
     set.seed(sim_seed) ## set random seed
     
