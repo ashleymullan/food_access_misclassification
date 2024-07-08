@@ -83,14 +83,15 @@ for (N in c(390, 2200)) {
     sett_res = data.frame(
       sim = paste(sim_seed, 1:num_reps, sep = "-"), 
       N, beta0 = fix_beta0, beta1 = fix_beta1, beta2 = fix_beta2, q = fix_q,  ## simulation setting
-      eta0 = eta0, eta1 = fix_eta1, ppv = ppv, avg_prev = NA, fpr = NA, ## simulation setting
+      eta0 = eta0, eta1 = fix_eta1, ppv = ppv, queried_ppv = NA, avg_prev = NA, fpr = NA, ## simulation setting
       beta0_gs = NA, se_beta0_gs = NA, beta1_gs = NA, se_beta1_gs = NA, beta2_gs = NA, se_beta2_gs = NA, ## gold standard analysis (outcome)
       eta0_gs = NA, se_eta0_gs = NA, eta1_gs = NA, se_eta1_gs = NA, ## gold standard analysis (misclassification)
       beta0_n = NA, se_beta0_n = NA, beta1_n = NA, se_beta1_n = NA, beta2_n = NA, se_beta2_n = NA, ## naive analysis (outcome)
       beta0_cc = NA, se_beta0_cc = NA, beta1_cc = NA, se_beta1_cc = NA, beta2_cc = NA, se_beta2_cc = NA, ## complete case analysis (outcome)
       eta0_cc = NA, se_eta0_cc = NA, eta1_cc = NA, se_eta1_cc = NA, ## complete case analysis (misclassification)
       beta0_mle = NA, se_beta0_mle = NA, beta1_mle = NA, se_beta2_mle = NA, beta2_mle = NA, se_beta1_mle = NA, ## MLE analysis (outcome)
-      eta0_mle = NA, se_eta0_mle = NA, eta1_mle = NA, se_eta1_mle = NA  ## MLE analysis (misclassification)
+      eta0_mle = NA, se_eta0_mle = NA, eta1_mle = NA, se_eta1_mle = NA,  ## MLE analysis (misclassification)
+      msg = ""
     )
     
     # Loop over replicates 
@@ -139,6 +140,14 @@ for (N in c(390, 2200)) {
       # Make X NA/missing for rows not in selected subset (query_rows)
       dat[!(dat$id %in% query_rows), "binX"] = NA 
       
+      # Add message if X = 1 for all X* = 1 in queried subset
+      queried_ppv = sum(dat$binX == 1 & dat$binXstar == 1, na.rm = TRUE) /
+        sum(dat$binXstar == 1 & !is.na(dat$binX), na.rm = TRUE)
+      sett_res[r, "queried_ppv"] = queried_ppv
+      sett_res[r, "msg"] = ifelse(test = queried_ppv == 1, 
+                                  yes = "100% PPV (Queried)", 
+                                  no = "")
+      
       # Fit the complete case models
       ## Analysis model
       fit_cc = glm(formula = Cases ~ binX + Z, 
@@ -177,5 +186,5 @@ for (N in c(390, 2200)) {
 }
 
 # Timing from tictoc:
-# Sims with N = 390: 325.403 sec elapsed
-# Sims with N = 2200: 1081.062 sec elapsed
+# Sims with N = 390: 334.58 sec elapsed
+# Sims with N = 2200: 1111.268 sec elapsed
