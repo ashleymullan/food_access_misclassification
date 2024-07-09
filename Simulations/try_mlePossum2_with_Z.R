@@ -91,7 +91,7 @@ for (N in c(390, 2200)) {
       eta0_cc = NA, se_eta0_cc = NA, eta1_cc = NA, se_eta1_cc = NA, ## complete case analysis (misclassification)
       beta0_mle = NA, se_beta0_mle = NA, beta1_mle = NA, se_beta2_mle = NA, beta2_mle = NA, se_beta1_mle = NA, ## MLE analysis (outcome)
       eta0_mle = NA, se_eta0_mle = NA, eta1_mle = NA, se_eta1_mle = NA,  ## MLE analysis (misclassification)
-      msg = ""
+      mle_msg = "", sim_msg = ""
     )
     
     # Loop over replicates 
@@ -144,7 +144,7 @@ for (N in c(390, 2200)) {
       queried_ppv = sum(dat$binX == 1 & dat$binXstar == 1, na.rm = TRUE) /
         sum(dat$binXstar == 1 & !is.na(dat$binX), na.rm = TRUE)
       sett_res[r, "queried_ppv"] = queried_ppv
-      sett_res[r, "msg"] = ifelse(test = queried_ppv == 1, 
+      sett_res[r, "sim_msg"] = ifelse(test = queried_ppv == 1, 
                                   yes = "100% PPV (Queried)", 
                                   no = "")
       
@@ -175,6 +175,7 @@ for (N in c(390, 2200)) {
       sett_res[r, c("se_beta0_mle", "se_beta1_mle", "se_beta2_mle")] = fit_mle$coefficients$se ## and its standard error
       sett_res[r, c("eta0_mle", "eta1_mle")] = fit_mle$misclass_coefficients$coeff ## estimated log odds ratio
       sett_res[r, c("se_eta0_mle", "se_eta1_mle")] = fit_mle$misclass_coefficients$se ## and its standard error
+      sett_res[r, "mle_msg"] = fit_mle$converged_msg
       
       # Save results
       write.csv(x = sett_res,
@@ -186,5 +187,5 @@ for (N in c(390, 2200)) {
 }
 
 # Timing from tictoc:
-# Sims with N = 390: 334.58 sec elapsed
-# Sims with N = 2200: 1111.268 sec elapsed
+# Sims with N = 390: 412.816 sec elapsed
+# Sims with N = 2200: 1336.439 sec elapsed
