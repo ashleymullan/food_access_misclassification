@@ -189,3 +189,14 @@ for (N in c(390, 2200)) {
 # Timing from tictoc:
 # Sims with N = 390: 415.899 sec elapsed
 # Sims with N = 2200: 1355.7 sec elapsed
+
+# Create combined results file
+# Read simulation data in from GitHub repo
+files = paste0("try_mlePossum2_with_Z/", list.files(path = "try_mlePossum2_with_Z/"))
+res = do.call(what = rbind, 
+              args = lapply(X = files, 
+                            FUN = read.csv)
+)
+write.csv(x = res,
+          file = paste0("try_mlePossum2_with_Z_seed114.csv"), 
+          row.names = F)
