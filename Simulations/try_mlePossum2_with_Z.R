@@ -36,27 +36,27 @@ fix_q = 0.1 ## proportion of neighborhoods queried
 ## eta1 = log odds ratio of land area on access
 # ---------------------------------------------------------------------------------
 sim_data = function(N, beta0 = fix_beta0, beta1 = fix_beta1, beta2 = fix_beta2, eta0, eta1 = fix_eta1) {
-  ## Simulate land area
+  ## Simulate land area Z
   Z = rgamma(n = N, 
              shape = 0.6, 
              scale = 0.2)
   
-  ## Simulate straight-line access
+  ## Simulate straight-line access X*|Z
   binXstar = rbinom(n = N, 
                     size = 1, 
                     prob = 1 / (1 + exp(- (1 - Z))))
   
-  ## Simulate map-based access
+  ## Simulate map-based access X|X*,Z
   binX = binXstar
   binX[binXstar == 1] = rbinom(n = sum(binXstar == 1), 
                                size = 1, 
                                prob = 1 / (1 + exp(- (eta0 + eta1 * Z[binXstar == 1]))))
   
-  ## Simulate population
+  ## Simulate population O
   P = rpois(n = N, 
             lambda = 4165)
   
-  ## Simulate cases of health outcome
+  ## Simulate cases of health outcome Y|X,Z,O
   lambda = exp(beta0 + beta1 * binX + beta2 * Z)
   Cases = rpois(n = N, 
                 lambda = P * lambda)
