@@ -31,6 +31,28 @@ cp = function(est, se, truth) {
   mean((est - 1.96 * se) <= truth & truth <= (est + 1.96 * se))
 }
 
+#function to create summary table
+
+## args:
+### results_df is the data frame storing the results from the sim settings of interest
+### varied_var is the name of the variable you're varying
+
+beta1_summary <- function(results_df, varied_var){
+  results_df |>
+    select(-c(mle_msg, sim_msg)) |>
+    drop_na() |>
+    group_by(N, {{varied_var}}) |>
+    summarize(bias_gs = mean((beta1_gs - beta1) / beta1), ese_gs = sd(beta1_gs),
+              bias_n = mean((beta1_n - beta1) / beta1), ese_n = sd(beta1_n),
+              bias_cc = mean((beta1_cc - beta1) / beta1), ese_cc = sd(beta1_cc),
+              bias_mle = mean((beta1_mle - beta1) / beta1), ese_mle = sd(beta1_mle),
+              ase_mle = mean(se_beta1_mle),
+              cp_mle = cp(est = beta1_mle, se = se_beta1_mle, truth = beta1)
+    ) |>
+    dplyr::mutate(re_cc = (ese_gs ^ 2) / (ese_cc ^ 2),
+                  re_mle = (ese_gs ^ 2) / (ese_mle ^ 2))
+}
+
 #test for varied ppv
 
 results_list$ppv |> nrow() #10K replicates
@@ -40,18 +62,8 @@ results_list$ppv |>
   nrow() #9990 reps (10 dropped)
 
 results_list$ppv |>
-  select(-c(mle_msg, sim_msg)) |>
-  drop_na() |>
-  group_by(N,ppv) |>
-  summarize(bias_gs = mean((beta1_gs - beta1) / beta1), ese_gs = sd(beta1_gs),
-            bias_n = mean((beta1_n - beta1) / beta1), ese_n = sd(beta1_n),
-            bias_cc = mean((beta1_cc - beta1) / beta1), ese_cc = sd(beta1_cc),
-            bias_mle = mean((beta1_mle - beta1) / beta1), ese_mle = sd(beta1_mle),
-            ase_mle = mean(se_beta1_mle),
-            cp_mle = cp(est = beta1_mle, se = se_beta1_mle, truth = beta1)
-  ) |>
-  dplyr::mutate(re_cc = (ese_gs ^ 2) / (ese_cc ^ 2),
-                re_mle = (ese_gs ^ 2) / (ese_mle ^ 2)) |> round(digits = 4) |> View()
+  beta1_summary(ppv) |>
+  round(digits = 4) |> View()
 
 #test for varied q
 
@@ -62,18 +74,8 @@ results_list$q |>
   nrow() #7999 reps (1 dropped)
 
 results_list$q |>
-  select(-c(mle_msg, sim_msg)) |> #drop columns we don't care about NA
-  drop_na() |>
-  group_by(N,q) |>
-  summarize(bias_gs = mean((beta1_gs - beta1) / beta1), ese_gs = sd(beta1_gs),
-            bias_n = mean((beta1_n - beta1) / beta1), ese_n = sd(beta1_n),
-            bias_cc = mean((beta1_cc - beta1) / beta1), ese_cc = sd(beta1_cc),
-            bias_mle = mean((beta1_mle - beta1) / beta1), ese_mle = sd(beta1_mle),
-            ase_mle = mean(se_beta1_mle),
-            cp_mle = cp(est = beta1_mle, se = se_beta1_mle, truth = beta1)
-  ) |>
-  dplyr::mutate(re_cc = (ese_gs ^ 2) / (ese_cc ^ 2),
-                re_mle = (ese_gs ^ 2) / (ese_mle ^ 2)) |> round(digits = 4) |> View()
+  beta1_summary(q) |>
+  round(digits = 4) |> View()
 
 #test for varied prevalence
 
@@ -83,18 +85,8 @@ results_list$prevalence |>
   drop_na() |> nrow() #7997 reps (3 dropped)
 
 results_list$prevalence |>
-  select(-c(mle_msg, sim_msg)) |>
-  drop_na() |>
-  group_by(N,beta0) |>
-  summarize(bias_gs = mean((beta1_gs - beta1) / beta1), ese_gs = sd(beta1_gs),
-            bias_n = mean((beta1_n - beta1) / beta1), ese_n = sd(beta1_n),
-            bias_cc = mean((beta1_cc - beta1) / beta1), ese_cc = sd(beta1_cc),
-            bias_mle = mean((beta1_mle - beta1) / beta1), ese_mle = sd(beta1_mle),
-            ase_mle = mean(se_beta1_mle),
-            cp_mle = cp(est = beta1_mle, se = se_beta1_mle, truth = beta1)
-  ) |>
-  dplyr::mutate(re_cc = (ese_gs ^ 2) / (ese_cc ^ 2),
-                re_mle = (ese_gs ^ 2) / (ese_mle ^ 2)) |> round(digits = 4) |> View()
+  beta1_summary(beta0) |>
+  round(digits = 4) |> View()
 
 #test for varied PR
 
@@ -105,18 +97,8 @@ results_list$pr |>
   nrow() #7995 reps (5 dropped)
 
 results_list$pr |>
-  select(-c(mle_msg, sim_msg)) |>
-  drop_na() |>
-  group_by(N,beta1) |>
-  summarize(bias_gs = mean((beta1_gs - beta1) / beta1), ese_gs = sd(beta1_gs),
-            bias_n = mean((beta1_n - beta1) / beta1), ese_n = sd(beta1_n),
-            bias_cc = mean((beta1_cc - beta1) / beta1), ese_cc = sd(beta1_cc),
-            bias_mle = mean((beta1_mle - beta1) / beta1), ese_mle = sd(beta1_mle),
-            ase_mle = mean(se_beta1_mle),
-            cp_mle = cp(est = beta1_mle, se = se_beta1_mle, truth = beta1)
-  ) |>
-  dplyr::mutate(re_cc = (ese_gs ^ 2) / (ese_cc ^ 2),
-                re_mle = (ese_gs ^ 2) / (ese_mle ^ 2)) |> round(digits = 4) |> View()
+  beta1_summary(beta1) |>
+  round(digits = 4) |> View()
 
 ##ASHLEY DEAL WITH LATER
 
@@ -127,7 +109,7 @@ format_num = function(num, digits = 3) {
 
 ## Format for LaTeX
 full_result_summary = full_result_summary |>
-  mutate_at(.vars = 5:18, .funs = format_num, digits = 3) |>
+  mutate_at(.vars = 2:18, .funs = format_num, digits = 3) |>
   mutate_at(.vars = 2:4, .funs = format_num, digits = 2)
 
 #change col names
