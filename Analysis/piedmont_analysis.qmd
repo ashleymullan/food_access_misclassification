@@ -1,0 +1,1076 @@
+---
+title: "ash_real_data"
+author: "Ashley E. Mullan"
+format: html
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Load Data
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+# Load packages 
+library(ggplot2) ## for maps and other plots
+library(possum) ## for our estimator
+
+
+
+
+library(tidycensus) ## for shapefiles
+library(ggthemes)
+library(dplyr)
+library(gridExtra)
+library(kableExtra)
+library(grid)
+# Load data 
+
+data <- read.csv("https://raw.githubusercontent.com/ashleymullan/food_access_misclassification/refs/heads/main/Analysis/piedmont_data_1.csv")
+## Health outcomes 
+health = read.csv(file = "https://raw.githubusercontent.com/sarahlotspeich/food/main/piedmont-triad-data/disease_prevalences_2022.csv")
+
+## Proximity to health foods based on straight-line and map-based distances (census tracts)
+food_access = read.csv(file = "/Users/ashleymullan/Library/Mobile Documents/com~apple~CloudDocs/Wake-Forest/M.S. Coursework/Research/Food-Access/food_data_private/food/piedmont-triad-data/REVIEW_closest_healthy_foods_store_2022.csv") |> 
+  dplyr::bind_rows(
+    read.csv(file = "/Users/ashleymullan/Library/Mobile Documents/com~apple~CloudDocs/Wake-Forest/M.S. Coursework/Research/Food-Access/food_data_private/food/piedmont-triad-data/REVIEW_closest_healthy_foods_store_2022.csv")
+  ) |> 
+  dplyr::right_join(health, 
+                    by = dplyr::join_by(LocationID == TractFIPS))
+## Remove additional food access columns (not needed for primary analysis)
+food_access = food_access |> 
+  dplyr::select(LocationID, CountyName, dist_closest_straight, dist_closest_map, 
+                POP, DIABETES)
+## Add "error" between straight-line and map-based distances
+food_access = food_access |> 
+  dplyr::mutate(dist_diff = dist_closest_map - dist_closest_straight)
+## Inspect merged dataset (used for analysis)
+food_access |> 
+  head()
+```
+
+```{r, echo = FALSE, message = FALSE, results = "hide", eval = T}
+# Set API keys (redacted to avoid violating use agreements)
+## See ex_set_api_keys.R to set up your own script
+#source("/Users/ashleymullan/Documents/Grad School/Wake Forest/M.S. Coursework/Research/Food-Access/food_data_private/food/set_api_keys.R")
+
+## Define Piedmont Triad counties
+piedmont_triad = c("SURRY", "STOKES", "ROCKINGHAM", "CASWELL", 
+                   "YADKIN", "FORSYTH", "GUILFORD", "ALAMANCE", 
+                   "DAVIE", "DAVIDSON", "RANDOLPH", "MONTGOMERY")
+## Load map data (census tracts)
+tracts = get_acs(state = "NC", 
+                 geography = "tract", 
+                 county = piedmont_triad,
+                 variables = "B19013_001",
+                 geometry = TRUE, 
+                 year = 2015) 
+# Load map data (counties)
+counties = get_acs(state = "NC", 
+                              geography = "county", 
+                              county = piedmont_triad,
+                              variables = "B19013_001",
+                              geometry = TRUE, 
+                              year = 2015) |> 
+  dplyr::mutate(NAME = sub(pattern = " County, North Carolina", 
+                           replacement = "", 
+                           x = NAME))
+```
+# Exploratory Data Analysis
+```{r}
+# Univariable imputation model fit
+#ie: true ~ error prone
+uni_imp_mod = lm(formula = dist_closest_map ~ dist_closest_straight, 
+                 data = food_access)
+## View model summary
+summary(uni_imp_mod)
+```
+
+```{r scatterplot of straight vs. map-based (fully queried), fig.cap = "Scatter plot of straight-line versus map-based proximity to healthy foods store for neighborhoods in the Piedmont Triad, North Carolina using the fully-queried data ($N = 388$)", message = FALSE, echo = F, cache = TRUE}
+# Scatterplot of straight-line vs. map-based food access
+food_access |> 
+  ggplot(aes(x = dist_closest_straight, y = dist_closest_map)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE, 
+              color = scales::viridis_pal(option = "magma")(6)[3]) +
+  geom_abline(slope = 1, intercept = 0, linetype = 2) +
+  annotate(geom = "text", x = 9, y = 13, 
+           label = latex2exp::TeX(paste0("$\\widehat{X} = ", paste(round(uni_imp_mod$coefficients, 3), collapse = " + "), "X$")), 
+           size = 4, 
+           color = scales::viridis_pal(option = "magma")(6)[3]) + 
+  theme_minimal(base_size = 10) +
+  xlab("Straight-Line Proximity to Healthy Foods (in Miles)") +
+  ylab("Map-Based Proximity to Healthy Foods (in Miles)") + 
+  xlim(c(-1, 13)) + 
+  ylim(c(-1, 13)) + 
+  coord_equal() 
+```
+taken from my proposal:
+Various thresholds of low food access are considered in the
+FRA, including low-access indicators for areas with zero healthy food retailers within 0.5, 1, 10, or 20 miles. 
+```{r}
+#create binarized food access. black/gold pops on if we find one within the radius.
+binarized_food_access <- 
+  food_access |> 
+  mutate(X_0.5 = ifelse(dist_closest_map <= 0.5, 1, 0),
+         X_1 = ifelse(dist_closest_map <= 1, 1, 0),
+         X_5 = ifelse(dist_closest_map <= 5, 1, 0),
+         X_10 = ifelse(dist_closest_map <= 10, 1, 0),
+         X_20 = ifelse(dist_closest_map <= 20, 1, 0),
+         X_star_0.5 = ifelse(dist_closest_straight <= 0.5, 1, 0),
+         X_star_1 = ifelse(dist_closest_straight <= 1, 1, 0),
+         X_star_5 = ifelse(dist_closest_straight <= 5, 1, 0),
+         X_star_10 = ifelse(dist_closest_straight <= 10, 1, 0),
+         X_star_20 = ifelse(dist_closest_straight <= 20, 1, 0)) 
+``` 
+
+```{r}
+#387 rows
+
+bhalf <- binarized_food_access |> 
+  group_by(X_0.5, X_star_0.5) |>
+  summarize(percent = round(n() / 387 * 100, 2)) |>
+  cbind(cat = c("TN", "FP", "TP"),
+        level = rep("0.5", times = 3)) |>
+  rename("X" = "X_0.5",
+         "X_star" = "X_star_0.5")
+  
+b1 <- binarized_food_access |> 
+  group_by(X_1, X_star_1) |>
+  summarize(percent = round(n() / 387 * 100, 2)) |>
+  cbind(cat = c("TN", "FP", "TP"),
+        level = rep("1", times = 3)) |>
+    rename("X" = "X_1",
+         "X_star" = "X_star_1")
+
+b5 <- binarized_food_access |> 
+  group_by(X_5, X_star_5) |>
+  summarize(percent = round(n() / 387 * 100, 2)) |>
+  cbind(cat = c("TN", "FP", "TP"),
+        level = rep("5", times = 3)) |>
+    rename("X" = "X_5",
+         "X_star" = "X_star_5")
+
+b10 <- binarized_food_access |> 
+  group_by(X_10, X_star_10) |>
+  summarize(percent = round(n() / 387 * 100, 2)) |>
+  cbind(cat = c("TN", "FP", "TP"),
+        level = rep("10", times = 3)) |>
+  rename("X" = "X_10",
+         "X_star" = "X_star_10")
+
+b20 <- binarized_food_access |> 
+  group_by(X_20, X_star_20) |>
+  summarize(percent = round(n() / 387 * 100, 2)) 
+#don't bother with 20, all within 20
+
+binarized_rates <- rbind(bhalf, b1, b5, b10)
+binarized_rates
+```
+
+```{r}
+
+br <- data.frame(
+  R = c(0.5, 1, 5, 10),
+  TP = c(8.79, 31.5, 86.0, 97.7),
+  TN = c(78.0, 50.4, 8.27, 0.52),
+  FP = c(13.2, 18.1, 5.68, 1.81)
+)
+#function to format numbers for LaTeX
+format_num = function(num, digits = 3) {
+  paste0("$", format(round(num, 3), nsmall = digits), "$")
+}
+
+## Format for LaTeX
+br = br |> 
+  mutate_at(.vars = 1:4, .funs = format_num, digits = 2)
+
+#change col names
+colnames(br) = c("Radius (mi)", "True Positive (%)", "True Negative(%)", "False Positive (%)")
+#GGNNCCMM MMCM
+
+br |> 
+  kable(format = "latex", 
+        booktabs = TRUE, 
+        escape = FALSE, 
+        align = "cccc") |> 
+  kable_styling()
+## And a \multicolumn used to separate the three parameters
+
+
+
+```
+
+```{r}
+binarized_rates$level <- factor(binarized_rates$level, levels = c("0.5", "1", "5", "10"))
+rates <- binarized_rates |>
+  mutate(cat = factor(cat,
+                      levels = c("FP", "TN", "TP"),
+                      labels = c("False Positive Rate",
+                                 "True Negative Rate",
+                                 "True Positive Rate"))) |>
+  ggplot() +
+  geom_segment(aes(
+    x = 0,
+    xend = percent,
+    y = level,
+    yend = level
+  )) +
+  geom_point(aes(x = percent, y = level)) +
+  facet_wrap(vars(cat)) +
+  theme_bw() +
+  labs(x = "Percent",
+       y = "Distance Radius") +
+  theme(plot.margin = margin(1, 1, 1, 1, "cm"))
+  ggsave(filename = "rates.pdf", 
+       plot = rates,
+       width = 5,
+       height = 3.5,
+       units = "in")
+```
+
+```{r distributions of straight and map-based (fully queried), fig.cap = "Densities of straight-line versus map-based distances to the nearest healthy foods store for neighborhoods in the Piedmont Triad, North Carolina using the fully-queried data", echo = F, cache = TRUE}
+food_access |>
+  dplyr::select(LocationID, dist_closest_straight, dist_closest_map) |> 
+  tidyr::gather(key = "Distance", value = "Stores", -1) |> 
+  dplyr::mutate(Distance = factor(x = Distance, 
+                                  levels = c("dist_closest_straight", "dist_closest_map"), 
+                                  labels = c("Straight-Line", "Map-Based"))) |>
+  ggplot() + 
+  geom_boxplot(aes(x = Stores, y = Distance, fill = Distance)) + 
+  scale_fill_manual(values = c("#B63679FF", "#FCFDBFFF"),
+                    name = "Distance Calculation:",  
+                    guide = "none") +
+  theme_minimal(base_size = 10) + 
+  theme(legend.position = "top") + 
+  xlab("Proximity to Healthy Foods (in Miles)") +
+  ylab("Distance Calculation")
+#box plot comparing distance distributions
+```
+
+```{r}
+food_access |>
+  dplyr::select(LocationID, dist_closest_straight, dist_closest_map) |> 
+  tidyr::gather(key = "Distance", value = "Stores", -1) |> 
+  dplyr::mutate(Distance = factor(x = Distance, 
+                                  levels = c("dist_closest_straight", "dist_closest_map"), 
+                                  labels = c("Straight-Line", "Map-Based"))) |>
+  ggplot() + 
+  geom_histogram(aes(x = Stores, fill = Distance), alpha = 0.5) +  
+  scale_fill_manual(values = c("#B63679FF", "#FCFDBFFF"),
+                    name = "Distance Calculation:") +
+  theme_minimal(base_size = 10) + 
+  theme(legend.position = "top") + 
+  xlab("Proximity to Healthy Foods (in Miles)")
+```
+
+```{r}
+food_access = food_access |> 
+  dplyr::mutate(U = dist_closest_straight - dist_closest_map, 
+                W = dist_closest_straight / dist_closest_map,
+                LocationID = as.character(LocationID)) |> 
+  dplyr::left_join(tracts, 
+                   by = dplyr::join_by(LocationID == GEOID))
+food_access |>
+  dplyr::select(U, W) |>
+  summary()
+food_access |> 
+  dplyr::summarize(sdU = sd(U), 
+                   sdW = sd(W))
+```
+
+```{r}
+binarized_food_access = binarized_food_access |> 
+  dplyr::mutate(LocationID = as.character(LocationID)) |> 
+  dplyr::left_join(tracts, 
+                   by = dplyr::join_by(LocationID == GEOID))
+binarized_food_access2 = binarized_food_access |> 
+  dplyr::mutate(LocationID = as.character(LocationID)) |> 
+  dplyr::full_join(tracts, 
+                   by = dplyr::join_by(LocationID == GEOID))
+```
+
+```{r, fig.cap = "Histogram of additive errors", warning = FALSE, message = FALSE, echo = FALSE}
+fitU = lm(formula = U ~ 1, data = food_access)
+(params_list = list(mean = fitU$coefficients, 
+                    sd = sigma(fitU)))
+food_access |> 
+  ggplot(aes(x = U)) + 
+  geom_histogram(aes(y = ..density..)) + 
+  geom_density() + 
+  stat_function(fun = dnorm, color = "blue", 
+                args = params_list) + 
+  xlab(latex2exp::TeX("$U = X^* - X$")) + 
+  theme_minimal() 
+```
+```{r, fig.cap = "Histogram of multiplicative errors", warning = FALSE, message = FALSE, echo = FALSE}
+fitW = lm(formula = W ~ 1, data = food_access)
+(params_list = list(mean = fitW$coefficients, 
+                    sd = sigma(fitW)))
+food_access |> 
+  ggplot(aes(x = W)) + 
+  geom_histogram(aes(y = ..density..)) + 
+  geom_density() + 
+  stat_function(fun = dnorm, 
+                color = "blue", 
+                args = params_list) +   
+  xlab(latex2exp::TeX("$W = X^*/X$")) + 
+  theme_minimal() 
+```
+```{r map of additive errors, fig.cap = "Choropleth map of the differences between straight-line and map-based proximity to healthy foods store for neighborhoods in the Piedmont Triad, North Carolina", echo = F, cache = TRUE}
+ggplot() + 
+  geom_sf(data = food_access, 
+          aes(fill = U, geometry = geometry)) + 
+  geom_sf(data = counties, 
+          aes(geometry = geometry), 
+          color = "black", fill = NA, size = 25) +  
+  scale_fill_viridis_c(option = "viridis", 
+                       name = "", #"Additive Error in Straight-Line Proximity to Healthy Foods (in Miles):", 
+                       guide = guide_colourbar(direction = "vertical",
+                                               barwidth = 1, barheight = 10)) +
+  theme_void() + 
+  theme(legend.position = "right")
+```
+
+```{r}
+custom_colors <- c("0" = "black", "1" = "gold")
+one_mile_true <- ggplot() + 
+  geom_sf(data = binarized_food_access, 
+          aes(fill = as.factor(X_1), geometry = geometry)) + 
+  geom_sf(data = counties, 
+          aes(geometry = geometry), 
+          color = "black", fill = NA, size = 25) +  
+  scale_fill_manual(values = custom_colors) +
+  theme_void() + 
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, size = 10)) +
+  labs(title = "True (1)")
+one_mile_error <- ggplot() + 
+  geom_sf(data = binarized_food_access, 
+          aes(fill = as.factor(X_star_1), geometry = geometry)) + 
+  geom_sf(data = counties, 
+          aes(geometry = geometry), 
+          color = "black", fill = NA, size = 25) +  
+  scale_fill_manual(values = custom_colors) +
+  theme_void() + 
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, size = 10)) +
+  labs(title = "EP (1)")
+five_mile_true <- ggplot() + 
+  geom_sf(data = binarized_food_access, 
+          aes(fill = as.factor(X_5), geometry = geometry)) + 
+  geom_sf(data = counties, 
+          aes(geometry = geometry), 
+          color = "black", fill = NA, size = 25) +  
+  scale_fill_manual(values = custom_colors) +
+  theme_void() + 
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, size = 10)) +
+  labs(title = "True (5)")
+five_mile_error <- ggplot() + 
+  geom_sf(data = binarized_food_access, 
+          aes(fill = as.factor(X_star_5), geometry = geometry)) + 
+  geom_sf(data = counties, 
+          aes(geometry = geometry), 
+          color = "black", fill = NA, size = 25) +  
+  scale_fill_manual(values = custom_colors) +
+  theme_void() + 
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, size = 10)) +
+  labs(title = "EP (5)")
+ten_mile_error <- ggplot() + 
+  geom_sf(data = binarized_food_access, 
+          aes(fill = as.factor(X_star_10), geometry = geometry)) + 
+  geom_sf(data = counties, 
+          aes(geometry = geometry), 
+          color = "black", fill = NA, size = 25) +  
+  scale_fill_manual(values = custom_colors) +
+  theme_void() + 
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, size = 10)) +
+  labs(title = "EP (10)")
+ten_mile_true <- ggplot() + 
+  geom_sf(data = binarized_food_access, 
+          aes(fill = as.factor(X_10), geometry = geometry)) + 
+  geom_sf(data = counties, 
+          aes(geometry = geometry), 
+          color = "black", fill = NA, size = 25) +  
+  scale_fill_manual(values = custom_colors) +
+  theme_void() + 
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, size = 10)) +
+  labs(title = "True (10)")
+half_mile_error <- ggplot() + 
+  geom_sf(data = binarized_food_access, 
+          aes(fill = as.factor(X_star_0.5), geometry = geometry)) + 
+  geom_sf(data = counties, 
+          aes(geometry = geometry), 
+          color = "black", fill = NA, size = 25) +  
+  scale_fill_manual(values = custom_colors) +
+  theme_void() + 
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, size = 10)) +
+  labs(title = "EP (0.5)")
+half_mile_true <- ggplot() + 
+  geom_sf(data = binarized_food_access, 
+          aes(fill = as.factor(X_0.5), geometry = geometry)) + 
+  geom_sf(data = counties, 
+          aes(geometry = geometry), 
+          color = "black", fill = NA, size = 25) +  
+  scale_fill_manual(values = custom_colors) +
+  theme_void() + 
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, size = 10)) +
+  labs(title = "True (0.5)")
+grid.arrange(half_mile_true, one_mile_true, 
+             five_mile_true, ten_mile_true,
+             half_mile_error, one_mile_error, 
+             five_mile_error, ten_mile_error, 
+             nrow = 2)
+
+
+
+```
+Revised Ashley's Maps
+```{r}
+binarized_food_access <- binarized_food_access |> 
+  mutate(color_code_0.5 = case_when(
+  X_0.5 == 0 & X_star_0.5 == 1 ~ "Error-Prone Only",
+  X_0.5 == 1 & X_star_0.5 == 0 ~ "True Only",
+  X_0.5 + X_star_0.5 == 2 ~ "Both",
+  X_0.5 + X_star_0.5 == 0 ~ "Neither"
+)) |>
+  mutate(color_code_1 = case_when(
+  X_1 == 0 & X_star_1 == 1 ~ "Error-Prone Only",
+  X_1 == 1 & X_star_1 == 0 ~ "True Only",
+  X_1 + X_star_1 == 2 ~ "Both",
+  X_1 + X_star_1 == 0 ~ "Neither"
+)) |>
+  mutate(color_code_5 = case_when(
+  X_5 == 0 & X_star_5 == 1 ~ "Error-Prone Only",
+  X_5 == 1 & X_star_5 == 0 ~ "True Only",
+  X_5 + X_star_5 == 2 ~ "Both",
+  X_5 + X_star_5 == 0 ~ "Neither"
+)) |>
+  mutate(color_code_10 = case_when(
+  X_10 == 0 & X_star_10 == 1 ~ "Error-Prone Only",
+  X_10 == 1 & X_star_10 == 0 ~ "True Only",
+  X_10 + X_star_10 == 2 ~ "Both",
+  X_10 + X_star_10 == 0 ~ "Neither"
+))
+
+
+half_mile_level <- ggplot() + 
+  geom_sf(data = counties, 
+          aes(geometry = geometry), 
+          color = "black", fill = NA, size = 25) +  
+  geom_sf(data = binarized_food_access, 
+          aes(fill = as.factor(color_code_0.5), geometry = geometry)) + 
+  theme_void() + 
+  theme(legend.position = "right",
+        plot.title = element_text(hjust = 0.5, size = 10)) +
+  labs(fill = "", title = "0.5 Mile Radius") +
+  theme(plot.margin = margin(2, 2, 2, 2, "mm")) +
+ # theme(legend.key.size = unit(0.3, "cm")) +
+  scale_fill_colorblind()
+
+one_mile_level <- ggplot() + 
+  geom_sf(data = counties, 
+          aes(geometry = geometry), 
+          color = "black", fill = NA, size = 25) +  
+  geom_sf(data = binarized_food_access, 
+          aes(fill = as.factor(color_code_1), geometry = geometry)) + 
+  theme_void() + 
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, size = 10)) +
+  labs(fill = "", title = "1 Mile Radius") +
+  theme(plot.margin = margin(2, 2, 2, 2, "mm")) +
+  #theme(legend.key.size = unit(0.3, "cm")) +
+  scale_fill_colorblind()
+
+five_mile_level <- ggplot() + 
+  geom_sf(data = counties, 
+          aes(geometry = geometry), 
+          color = "black", fill = NA, size = 25) +  
+  geom_sf(data = binarized_food_access, 
+          aes(fill = as.factor(color_code_5), geometry = geometry)) + 
+  theme_void() + 
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, size = 10)) +
+  labs(fill = "", title = "5 Mile Radius") +
+  theme(plot.margin = margin(2, 2, 2, 2, "mm")) +
+  #theme(legend.key.size = unit(0.3, "cm")) +
+  scale_fill_colorblind()
+
+ten_mile_level <- ggplot() + 
+  geom_sf(data = counties, 
+          aes(geometry = geometry), 
+          color = "black", fill = NA, size = 25) +  
+  geom_sf(data = binarized_food_access, 
+          aes(fill = as.factor(color_code_10), geometry = geometry)) + 
+  theme_void() + 
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, size = 10)) +
+  labs(fill = "", title = "10 Mile Radius") +
+  theme(plot.margin = margin(2, 2, 2, 2, "mm")) +
+  #theme(legend.key.size = unit(0.3, "cm")) +
+  scale_fill_colorblind() 
+
+good_maps1 <- grid.arrange(half_mile_level,
+                          one_mile_level, nrow = 1)
+good_maps2 <- grid.arrange(five_mile_level, ten_mile_level, nrow = 1)#, 
+                          #five_mile_level, 
+                          #ten_mile_level, nrow = 1)
+#bottom = textGrob("blck both gold error-prone only blue neither", just = "center"))
+ggsave(filename = "good_map_0.5.pdf", 
+       plot = half_mile_level,
+       width = 2.5,
+       height = 1.75,
+       units = "in")
+ggsave(filename = "good_map_1.pdf", 
+       plot = one_mile_level,
+       width = 2.5,
+       height = 1.75,
+       units = "in")
+ggsave(filename = "good_map_5.pdf", 
+       plot = five_mile_level,
+       width = 2.5,
+       height = 1.75,
+       units = "in")
+ggsave(filename = "good_map_10.pdf", 
+       plot = ten_mile_level,
+       width = 2.5,
+       height = 1.75,
+       units = "in")
+```
+
+Contingency Tables 
+```{r}
+ct_raw_half <- binarized_food_access |> group_by(color_code_0.5) |> summarize(count = n())
+ct_raw_one <- binarized_food_access |> group_by(color_code_1) |> summarize(count = n())
+ct_raw_five <- binarized_food_access |> group_by(color_code_5) |> summarize(count = n())
+ct_raw_ten <- binarized_food_access |> group_by(color_code_10) |> summarize(count = n())
+
+
+```
+
+Diabetes Maps
+```{r}
+binarized_food_access2 <- binarized_food_access2 |>
+  mutate(prev = DIABETES / POP)
+
+binarized_food_access2 <- binarized_food_access2 |>
+  mutate(prev_buck = case_when(
+    prev < 0.04 ~ "Under 4%",
+    prev >= 0.04 & prev < 0.08 ~ "4-8%",
+    prev >= 0.08 & prev < 0.12 ~ "8-12%",
+    prev >= 0.12 & prev < 0.16 ~ "12-16%",
+    prev >= 0.16 & prev < 0.2 ~ "16-20%",
+    prev >= 0.2 ~ "20-24%"
+  )) |>
+  mutate(prev_buck = factor(prev_buck, levels = c("Under 4%", "4-8%", "8-12%", "12-16%", "16-20%", "20-24%"))) |> clean_names()
+ash_gradient <- c("#f9e1f5", "#cfb1cb", "#a683a2", "#7f577b", "#592e56", "#340434")
+db_map2 <- ggplot() + 
+  geom_sf(data = counties, 
+          aes(geometry = geometry_x), 
+          color = "black", fill = NA, size = 25) +  
+  geom_sf(data = binarized_food_access2, 
+          aes(fill = as.factor(prev_buck), geometry = geometry_x)) + 
+  theme_void() + 
+  scale_fill_manual(values = ash_gradient) +
+  theme(legend.position = "right",
+        plot.title = element_text(hjust = 0.5, size = 10)) +
+  labs(fill = "", title = "") +
+  theme(plot.margin = margin(1, 1, 1, 1, "cm")) + 
+    theme(legend.key.size = unit(0.3, "cm")) 
+ggsave(filename = "db_map.png", 
+       plot = db_map,
+       width = 5,
+       height = 3.5,
+       units = "in")
+```
+
+```{r}
+hist <- binarized_food_access |> ggplot(aes(x = DIABETES/POP)) + 
+  geom_histogram(fill = "#532E80") +
+  labs(x = "Diabetes Case Prevalence in a Tract", y = "Count") +
+  theme_minimal() +
+  scale_x_continuous(labels = scales::percent)
+ggsave(filename = "db_hist.png", 
+       plot = hist,
+       width = 5,
+       height = 3.5,
+       units = "in")
+```
+
+```{r}
+## 0.5 Mile Radius
+cont_tab = data.frame(Radius = 0.5, 
+                      Straight = c("No Access", "Access", "No Access", "Access"), 
+                      Route = c("No Access", "No Access", "Access", "Access"), 
+                      Count = c(302, 51, 0, 34))
+## 1 Mile Radius
+cont_tab = data.frame(Radius = 1, 
+                      Straight = c("No Access", "Access", "No Access", "Access"), 
+                      Route = c("No Access", "No Access", "Access", "Access"), 
+                      Count = c(195, 70, 0, 122)) |> 
+  dplyr::bind_rows(cont_tab)
+
+## 5 Mile Radius
+cont_tab = data.frame(Radius = 5, 
+                      Straight = c("No Access", "Access", "No Access", "Access"), 
+                      Route = c("No Access", "No Access", "Access", "Access"), 
+                      Count = c(32, 22, 0, 333)) |> 
+  dplyr::bind_rows(cont_tab)
+
+## 10 Mile Radius
+cont_tab = data.frame(Radius = 10, 
+                      Straight = c("No Access", "Access", "No Access", "Access"), 
+                      Route = c("No Access", "No Access", "Access", "Access"), 
+                      Count = c(2, 7, 0, 378)) |> 
+  dplyr::bind_rows(cont_tab)
+
+
+heat_confmats <- cont_tab |> 
+  dplyr::mutate(Straight = factor(Straight), 
+                Route = factor(Route),
+                Radius = factor(Radius, 
+                                levels = c(0.5, 1, 5, 10), 
+                                labels = paste(c(0.5, 1, 5, 10), "Mile Radius"))) |> 
+  ggplot(aes(x = Route, y = Straight, fill = Count)) + 
+  geom_tile() + 
+  geom_text(aes(label = Count), color = "white") + 
+  theme_minimal() + 
+  facet_wrap(~Radius) + 
+  scale_fill_continuous(guide = "none") + 
+  xlab("Route-Based") + 
+  ylab("Straight-Line")
+ggsave(plot = heat_confmats, filename = "heat_confmats.pdf",
+       width = 5, height = 4, units = "in")
+```
+
+# Models 
+```{r, echo = F, cache = TRUE}
+est = function(i, fit) {
+  round(exp(fit$coefficients[i]), 3)
+}
+lb = function(i, fit) {
+  se = sqrt(diag(vcov(fit)))[i]
+  round(exp(fit$coefficients[i] - 1.96 * se), 3)
+}
+ub = function(i, fit) {
+  se = sqrt(diag(vcov(fit)))[i]
+  round(exp(fit$coefficients[i] + 1.96 * se), 3)
+}
+ci = function(i, fit) {
+  se = sqrt(diag(vcov(fit)))[i]
+  paste(round(exp(fit$coefficients[i] + c(-1.96, 1.96) * se), 3), collapse = ", ")
+}
+```
+Models are summarized by the estimated prevalence in neighborhoods with the zero distance to the nearest store ($\exp(\beta_0)$) and the prevalence ratio ($\exp(\beta_1)$) for a neighborhood having its nearest store one mile farther. These estimates are accompanied by 95\% confidence intervals (95\% CIs).  
+## Naive Analysis 
+```{r primary model fits (naive), warning = FALSE}
+# Model 1a: Diagnosed diabetes among adults aged >=18 years 
+## Predictor X* = proximity to healthy foods based on straight-line distance
+mod_diab = glm(formula = DIABETES ~ dist_closest_straight, 
+               family = poisson(link = "log"), 
+               offset = log(POP),
+               data = food_access)
+
+mod_diab_bn_gs_1 = summary(glm(formula = DIABETES ~ X_1, 
+               family = poisson(link = "log"), 
+               offset = log(POP),
+               data = binarized_food_access))$coefficients
+
+mod_diab_bn_gs_0.5 = summary(glm(formula = DIABETES ~ X_0.5, 
+               family = poisson(link = "log"), 
+               offset = log(POP),
+               data = binarized_food_access))$coefficients
+
+mod_diab_bn_gs_5 = summary(glm(formula = DIABETES ~ X_5, 
+               family = poisson(link = "log"), 
+               offset = log(POP),
+               data = binarized_food_access))$coefficients
+
+mod_diab_bn_gs_10 = summary(glm(formula = DIABETES ~ X_10, 
+               family = poisson(link = "log"), 
+               offset = log(POP),
+               data = binarized_food_access))$coefficients
+mod_diab_bn_gs <-
+  rbind(mod_diab_bn_gs_0.5,
+        mod_diab_bn_gs_1,
+        mod_diab_bn_gs_5,
+        mod_diab_bn_gs_10)
+
+#naive
+mod_diab_bn_n_1 = summary(glm(formula = DIABETES ~ X_star_1, 
+               family = poisson(link = "log"), 
+               offset = log(POP),
+               data = binarized_food_access))$coefficients
+
+mod_diab_bn_n_0.5 = summary(glm(formula = DIABETES ~ X_star_0.5, 
+               family = poisson(link = "log"), 
+               offset = log(POP),
+               data = binarized_food_access))$coefficients
+
+mod_diab_bn_n_5 = summary(glm(formula = DIABETES ~ X_star_5, 
+               family = poisson(link = "log"), 
+               offset = log(POP),
+               data = binarized_food_access))$coefficients
+
+mod_diab_bn_n_10 = summary(glm(formula = DIABETES ~ X_star_10, 
+               family = poisson(link = "log"), 
+               offset = log(POP),
+               data = binarized_food_access))$coefficients
+mod_diab_bn_n <-
+  rbind(mod_diab_bn_n_0.5,
+        mod_diab_bn_n_1,
+        mod_diab_bn_n_5,
+        mod_diab_bn_n_10)
+#mles
+
+set.seed(1031)
+bfa_queried <- binarized_food_access |>
+  mutate(q = rbinom(nrow(binarized_food_access), size = 1, prob = 0.75)) |>
+  mutate(X_0.5 = ifelse(q == 1, X_0.5, NA)) |>
+  mutate(X_1 = ifelse(q == 1, X_1, NA)) |>
+  mutate(X_5 = ifelse(q == 1, X_5, NA)) |>
+  mutate(X_10 = ifelse(q == 1, X_10, NA)) 
+mle_diab_bn_0.5 = possum::mlePossum(analysis_formula = DIABETES ~ X_0.5,
+                            error_formula = X_0.5 ~ X_star_0.5,
+                            offset = "POP",
+                            data = bfa_queried,
+                            noFN = TRUE)$coefficients
+mle_diab_bn_0.5
+
+mle_diab_bn_1 = possum::mlePossum(analysis_formula = DIABETES ~ X_1,
+                            error_formula = X_1 ~ X_star_1,
+                            offset = "POP",
+                            data = bfa_queried,
+                            noFN = TRUE)$coefficients
+mle_diab_bn_1  
+
+mle_diab_bn_5 = mlePossum(analysis_formula = DIABETES ~ X_5,
+                            error_formula = X_5 ~ X_star_5,
+                            offset = "POP",
+                            data = bfa_queried,
+                          noFN = TRUE)$coefficients
+mle_diab_bn_5
+
+mle_diab_bn_10 = mlePossum(analysis_formula = DIABETES ~ X_10,
+                            error_formula = X_10 ~ X_star_10,
+                            offset = "POP",
+                            data = bfa_queried,
+                           noFN = TRUE)$coefficients
+mle_diab_bn_10 
+
+case_studies <- rbind(mle_diab_bn_0.5,
+                      mle_diab_bn_1,
+                      mle_diab_bn_5,
+                      mle_diab_bn_10) |>
+  cbind(Radius = c(rep("Half", times = 2),
+                   rep("One", times = 2),
+                   rep("Five", times = 2),
+                   rep("Ten", times = 2)))
+
+case_studies
+
+mod_diab_bn_cc_0.5 = summary(glm(formula = DIABETES ~ X_0.5, 
+               family = poisson(link = "log"), 
+               offset = log(POP),
+               data = bfa_queried |> filter(q == 1)))$coefficients
+
+mod_diab_bn_cc_1 = summary(glm(formula = DIABETES ~ X_1, 
+               family = poisson(link = "log"), 
+               offset = log(POP),
+               data = bfa_queried |> filter(q == 1)))$coefficients
+
+mod_diab_bn_cc_5 = summary(glm(formula = DIABETES ~ X_5, 
+               family = poisson(link = "log"), 
+               offset = log(POP),
+               data = bfa_queried |> filter(q == 1)))$coefficients
+
+mod_diab_bn_cc_10 = summary(glm(formula = DIABETES ~ X_10, 
+               family = poisson(link = "log"), 
+               offset = log(POP),
+               data = bfa_queried |> filter(q == 1)))$coefficients
+
+mod_diab_bn_cc <-
+  rbind(mod_diab_bn_cc_0.5,
+        mod_diab_bn_cc_1,
+        mod_diab_bn_cc_5,
+        mod_diab_bn_cc_10)
+
+
+competings <- rbind(mod_diab_bn_gs,
+                    mod_diab_bn_n,
+                    mod_diab_bn_cc)[,1:2] #|>
+colnames(case_studies) <- c("Estimate", "Std. Error", "Radius")
+all_real_models <- rbind(competings, case_studies[,1:2]) |>
+  mutate(Coefficient = rep(c("Intercept", "Prevalence Ratio"), 
+                           times = 16),
+         Radius = rep(c("0.5", "0.5", "1", "1", 
+                        "5", "5", "10", "10"), times = 4),
+         Method = c(rep("Gold Standard", times = 8),
+                    rep("Naive", times = 8),
+                    rep("Complete Case", times = 8),
+                    rep("MLE", times = 8))
+  )
+
+all_real_models_wide <- all_real_models |>
+  pivot_wider(names_from = Method,
+              values_from = c("Estimate", "Std. Error"))
+colnames(all_real_models_wide) <- c(
+  "Coefficient", "Radius", rep(c("Estimate", "Std. Error"), times = 4)) #GS, N, CC, MLE
+
+
+armw <- all_real_models_wide[,c("Coefficient", "Radius", "Estimate_Gold Standard", "Std. Error_Gold Standard", "Estimate_Naive", "Std. Error_Naive", "Estimate_Complete Case", "Std. Error_Complete Case", "Estimate_MLE", "Std. Error_MLE")]
+colnames(armw) <- c(
+  "Coefficient", "Radius", rep(c("Estimate", "Std. Error"), times = 4)) #GS, N, CC, MLE
+
+write.csv(armw, "armw.csv")
+
+colnames(all_real_models) <- c("Estimate", "SE", "Coefficient", "Radius", "Method")
+arm_plot_0.5 <- all_real_models |>
+  filter(Coefficient == "Prevalence Ratio") |>
+  filter(Radius == 0.5) |>
+  mutate(Method = factor(Method, levels = c("Naive", "Gold Standard", "MLE", "Complete Case"), labels = c("N", "GS", "MLE", "CC"))) |>
+  ggplot(aes(x = Method, y = exp(Estimate), color = Method)) +
+  geom_pointrange(aes(ymin = exp(Estimate - 1.96*SE), 
+                      ymax = exp(Estimate + 1.96*SE)),
+                  linewidth = 1.1) +
+  geom_errorbar(aes(ymin = exp(Estimate - 1.96*SE), 
+                    ymax = exp(Estimate + 1.96*SE)),
+                linewidth = 1.1) +
+  geom_hline(yintercept = 1, 
+             color = "gray", linetype = "dashed") +
+  theme_minimal() +
+  #ylim(c(0.7, 1.4)) +
+  scale_color_colorblind() +
+  labs(x = "0.5 Mile Radius",
+       y = "") +
+  theme(legend.position = "none", axis.title.x = element_text(size = 12),
+        axis.text.x = element_blank())
+arm_plot_1 <- all_real_models |>
+  filter(Coefficient == "Prevalence Ratio") |>
+  filter(Radius == 1) |>
+  mutate(Method = factor(Method, levels = c("Naive", "Gold Standard", "MLE", "Complete Case"))) |>
+  ggplot(aes(x = Method, y = exp(Estimate), color = Method)) +
+  geom_pointrange(aes(ymin = exp(Estimate - 1.96*SE), 
+                      ymax = exp(Estimate + 1.96*SE)),
+                  linewidth = 1.1) +
+  geom_errorbar(aes(ymin = exp(Estimate - 1.96*SE), 
+                    ymax = exp(Estimate + 1.96*SE)),
+                linewidth = 1.1) +
+  geom_hline(yintercept = 1, 
+             color = "gray", linetype = "dashed") +
+  theme_minimal() +
+  #ylim(c(0.7, 1.4)) +
+  scale_color_colorblind() +
+  labs(x = "1 Mile Radius",
+       y = "") +
+  theme(legend.position = "none", axis.text.x = element_blank(), axis.title.x = element_text(size = 12)) 
+arm_plot_5 <- all_real_models |>
+  filter(Coefficient == "Prevalence Ratio") |>
+  filter(Radius == 5) |>
+  mutate(Method = factor(Method, levels = c("Naive", "Gold Standard", "MLE", "Complete Case"))) |>
+  ggplot(aes(x = Method, y = exp(Estimate), color = Method)) +
+  geom_pointrange(aes(ymin = exp(Estimate - 1.96*SE), 
+                      ymax = exp(Estimate + 1.96*SE)),
+                  linewidth = 1.1) +
+  geom_errorbar(aes(ymin = exp(Estimate - 1.96*SE), 
+                    ymax = exp(Estimate + 1.96*SE)),
+                linewidth = 1.1) +
+  geom_hline(yintercept = 1, 
+             color = "gray", linetype = "dashed") +
+  theme_minimal() +
+  #ylim(c(0.7, 1.4)) +
+  scale_color_colorblind() +
+  labs(x = "5 Mile Radius",
+       y = "") +
+  theme(legend.position = "none", axis.text.x = element_blank(), axis.title.x = element_text(size = 12))
+arm_plot_10 <- all_real_models |>
+  filter(Coefficient == "Prevalence Ratio") |>
+  filter(Radius == 10) |>
+  mutate(Method = factor(Method, levels = c("Naive", "Gold Standard", "MLE", "Complete Case"))) |>
+  ggplot(aes(x = Method, y = exp(Estimate), color = Method)) +
+  geom_pointrange(aes(ymin = exp(Estimate - 1.96*SE), 
+                      ymax = exp(Estimate + 1.96*SE)),
+                  linewidth = 1.1) +
+  geom_errorbar(aes(ymin = exp(Estimate - 1.96*SE), 
+                    ymax = exp(Estimate + 1.96*SE)),
+                linewidth = 1.1) +
+  geom_hline(yintercept = 1, 
+             color = "gray", linetype = "dashed") +
+  theme_minimal() +
+  #ylim(c(0.7, 1.4)) +
+  scale_color_colorblind() +
+  labs(x = "10 Mile Radius",
+       y = "") +
+  theme(legend.position = "none", axis.text.x = element_blank(), axis.title.x = element_text(size = 12)) 
+forest <- grid.arrange(arm_plot_0.5, arm_plot_1, arm_plot_5, arm_plot_10, nrow = 2,
+             padding = unit(2, "cm"))
+ggsave(plot = forest, filename = "forest.pdf",
+       width = 5, height = 3.5, units = "in")
+
+```
+
+```{r}
+arm_plot_0.5_b0 <- all_real_models |>
+  filter(Coefficient == "Intercept") |>
+  filter(Radius == 0.5) |>
+  ggplot(aes(x = Method, y = exp(Estimate), color = Method)) +
+  geom_pointrange(aes(ymin = exp(Estimate - 1.96*SE), 
+                      ymax = exp(Estimate + 1.96*SE)),
+                  linewidth = 1.1) +
+  geom_errorbar(aes(ymin = exp(Estimate - 1.96*SE), 
+                    ymax = exp(Estimate + 1.96*SE)),
+                linewidth = 1.1) +
+  theme_minimal() +
+  #ylim(c(0.7, 1.4)) +
+  scale_color_colorblind() +
+  labs(x = "0.5 Mile Radius",
+       y = "") +
+  theme(legend.position = "none", axis.title.x = element_text(size = 12),
+        axis.text.x = element_blank())
+arm_plot_1_b0 <- all_real_models |>
+  filter(Coefficient == "Intercept") |>
+  filter(Radius == 1) |>
+  mutate(Method = factor(Method, levels = c("Naive", "Gold Standard", "MLE", "Complete Case"))) |>
+  ggplot(aes(x = Method, y = exp(Estimate), color = Method)) +
+  geom_pointrange(aes(ymin = exp(Estimate - 1.96*SE), 
+                      ymax = exp(Estimate + 1.96*SE)),
+                  linewidth = 1.1) +
+  geom_errorbar(aes(ymin = exp(Estimate - 1.96*SE), 
+                    ymax = exp(Estimate + 1.96*SE)),
+                linewidth = 1.1) +
+  theme_minimal() +
+  #ylim(c(0.7, 1.4)) +
+  scale_color_colorblind() +
+  labs(x = "1 Mile Radius",
+       y = "") +
+  theme(legend.position = "none", axis.text.x = element_blank(), axis.title.x = element_text(size = 12)) 
+arm_plot_5_b0 <- all_real_models |>
+  filter(Coefficient == "Intercept") |>
+  filter(Radius == 5) |>
+  mutate(Method = factor(Method, levels = c("Naive", "Gold Standard", "MLE", "Complete Case"))) |>
+  ggplot(aes(x = Method, y = exp(Estimate), color = Method)) +
+  geom_pointrange(aes(ymin = exp(Estimate - 1.96*SE), 
+                      ymax = exp(Estimate + 1.96*SE)),
+                  linewidth = 1.1) +
+  geom_errorbar(aes(ymin = exp(Estimate - 1.96*SE), 
+                    ymax = exp(Estimate + 1.96*SE)),
+                linewidth = 1.1) +
+  theme_minimal() +
+  #ylim(c(0.7, 1.4)) +
+  scale_color_colorblind() +
+  labs(x = "5 Mile Radius",
+       y = "") +
+  theme(legend.position = "none", axis.text.x = element_blank(), axis.title.x = element_text(size = 12))
+arm_plot_10_b0 <- all_real_models |>
+  filter(Coefficient == "Intercept") |>
+  filter(Radius == 10) |>
+  mutate(Method = factor(Method, levels = c("Naive", "Gold Standard", "MLE", "Complete Case"))) |>
+  ggplot(aes(x = Method, y = exp(Estimate), color = Method)) +
+  geom_pointrange(aes(ymin = exp(Estimate - 1.96*SE), 
+                      ymax = exp(Estimate + 1.96*SE)),
+                  linewidth = 1.1) +
+  geom_errorbar(aes(ymin = exp(Estimate - 1.96*SE), 
+                    ymax = exp(Estimate + 1.96*SE)),
+                linewidth = 1.1) +
+  theme_minimal() +
+  #ylim(c(0.7, 1.4)) +
+  scale_color_colorblind() +
+  labs(x = "10 Mile Radius",
+       y = "") +
+  theme(legend.position = "none", axis.text.x = element_blank(), axis.title.x = element_text(size = 12)) 
+forest_b0 <- grid.arrange(arm_plot_0.5_b0, arm_plot_1_b0, arm_plot_5_b0, arm_plot_10_b0, nrow = 2,
+             padding = unit(2, "cm"))
+ggsave(plot = forest_b0, filename = "forest_b0.pdf",
+       width = 5, height = 3.5, units = "in")
+```
+
+Thus                          -.007, -.003
+exp(−0.0065), exp(−0.0029)) = (0.993, 0.997)
+  suggests that we are 95% confident that the mean number in the house decreases between 0.7% and 0.3% for each additional year older the head of household is. 
+  
+  1.189 to 1.228 suggests mean diabetes cases increases between 18.9% and 22.8% if an area has access to healthy food
+
+```{r}
+set.seed(1031)
+bfa_queried <- binarized_food_access |>
+  mutate(q = rbinom(nrow(binarized_food_access), size = 1, prob = 0.75)) |>
+  mutate(X_1 = ifelse(q == 1, X_1, NA))
+
+mod_diab_bn_gs_1 = glm(formula = DIABETES ~ X_1, 
+               family = poisson(link = "log"), 
+               offset = log(POP),
+               data = binarized_food_access)
+
+mod_diab_bn_cc_1 = glm(formula = DIABETES ~ X_1, 
+               family = poisson(link = "log"), 
+               offset = log(POP),
+               data = bfa_queried |> filter(q == 1))
+
+mod_diab_bn_naive_1 = glm(formula = DIABETES ~ X_star_1, 
+               family = poisson(link = "log"), 
+               offset = log(POP),
+               data = binarized_food_access)
+
+mod_diab_bn_mle_1 = mlePossum(error_formula = X_1 ~ X_star_1,
+                              analysis_formula = DIABETES ~ X_1,
+                              offset = "POP",
+                              data = bfa_queried)
+summary(mod_diab_bn_gs_1)$coefficients[1:2,1:2]
+
+colnames(mod_diab_bn_mle_1) <- c("Estimate", "Std. Error")
+case_study_1_comps <- rbind(summary(mod_diab_bn_gs_1)$coefficients[1:2,1:2],
+                            summary(mod_diab_bn_naive_1)$coefficients[1:2,1:2],
+                            summary(mod_diab_bn_cc_1)$coefficients[1:2,1:2], 
+                            mod_diab_bn_mle_1) |>
+  cbind(Method = c(rep("Gold Standard", times = 2),
+                   rep("Naive", times = 2),
+                   rep("Complete Case", times = 2),
+                   rep("MLE", times = 2)))
+colnames(case_study_1_comps) <- c("Estimate", "SE", "Method")
+```
+
+
+
+```{r}
+case_study_1_plot <- case_study_1_comps[c(2,4,6,8),] |>
+  mutate(Method = factor(Method, levels = c("Naive", "Gold Standard", "MLE", "Complete Case"))) |>
+  ggplot(aes(x = Method, y = exp(Estimate), color = Method)) +
+  geom_pointrange(aes(ymin = exp(Estimate - 1.96*SE), 
+                      ymax = exp(Estimate + 1.96*SE)),
+                  linewidth = 1.2) +
+  geom_errorbar(aes(ymin = exp(Estimate - 1.96*SE), 
+                    ymax = exp(Estimate + 1.96*SE)),
+                linewidth = 1.2) +
+  theme_minimal() +
+  scale_color_colorblind() +
+  labs(x = "Analysis Method",
+       y = "Diabetes Prevalence Ratio") +
+  theme(legend.position = "none") 
+ggsave(plot = case_study_1_plot, filename = "case_study_1_plot.pdf",
+       width = 5, height = 3.5, units = "in")
+
+```
+
+**Naive analysis model interpretations:** 
+  -   For every additional mile to their nearest grocery store, a neighborhood's crude **prevalence of diabetes** is expected to change by a factor of `r est(2, mod_diab)` (95\% CI: `r ci(2, mod_diab)`). 
+
+
+```{r, echo = F, cache = TRUE}
+# Save results for forest plot
+res = data.frame(Analysis = "Naive",
+                 Outcome = c("Diagnosed Diabetes"),
+                 Est = c(est(2, mod_diab)), 
+                 LB = c(lb(2, mod_diab)),
+                 UB = c(ub(2, mod_diab))) 
+```
+```{r naive-maps, echo = FALSE, cache = TRUE}
+# Add model-predicted case counts 
+food_access$DIABETES_PRED = exp(predict(object = mod_diab))
+```
+\newpage
+## Gold Standard Analysis
+```{r primary model fits (gold)...
