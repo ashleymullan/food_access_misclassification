@@ -42,14 +42,15 @@ food_access = food_access |>
 
 ## Define query indicators (= 1 if map-based measures are available, = 0 otherwise)
 set.seed(918) ### make the sampling reproducible
-n = 4 ### set number of census tracts sampled from each county to be queried
+n = 180
 queried_subset = food_access |> 
-  group_by(CountyName) |> 
-  sample_n(size = n, replace = FALSE) 
+  filter(binXstar == 1) |> 
+  pull(LocationID) |> 
+  sample(size = n, replace = FALSE)
 
 ### Create column for queried X from complete-case
 food_access = food_access |> 
-  mutate(binX_partial = ifelse(test = LocationID %in% queried_subset$LocationID, 
+  mutate(binX_partial = ifelse(test = LocationID %in% queried_subset, #$LocationID, 
                                yes = binX_full, 
                                no = NA))
 
