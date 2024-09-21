@@ -17,6 +17,14 @@ mod_adj = glm(formula = Y_DIABETES ~ binX_full + I(LandArea/100) + offset(log(O_
 # (Intercept)      binX_full I(LandArea/100)
 # -2.27785405     0.17645438     0.01413503
 
+## Error-prone covariate
+mod_Xstar = glm(formula = binXstar ~ I(LandArea/10), 
+                family = binomial,
+                data = piedmont_data)
+# mod_Xstar$coefficients
+# (Intercept) I(LandArea/10) 
+# 1.066188      -1.045819 
+
 ## Misclassification mechanism
 mod_mc = glm(formula = binX_full ~ I(LandArea/10), 
              family = binomial,
@@ -27,6 +35,10 @@ mod_mc = glm(formula = binX_full ~ I(LandArea/10),
 # 0.3924274      0.3897812
 
 ## Fit Gamma distribution to land area
+### Marginal --> Gamma(0.6, 0.2)
+EnvStats::egamma(piedmont_data$LandArea / 100, method = "mle", ci = FALSE, 
+                 ci.type = "two-sided", ci.method = "normal.approx", 
+                 normal.approx.transform = "kulkarni.powar", conf.level = 0.95)
 ### With X* = 0 --> Gamma(1, 0.26)
 EnvStats::egamma(piedmont_data$LandArea[piedmont_data$binXstar == 0] / 100, method = "mle", ci = FALSE, 
                  ci.type = "two-sided", ci.method = "normal.approx", 

@@ -16,7 +16,7 @@ setwd("~/Documents/food_access_misclassification/Simulations/")
 sim_seed = 11422
 
 # Number of replicates per simulation setting
-num_reps = 1000
+num_reps = 100
 ## Note: You may want to run this code was run in parallel a cluster instead of locally, as it can be slow.
 
 # Set parameters that won't be varied in the loop
@@ -192,11 +192,28 @@ for (N in c(390, 2200)) {
 
 # Create combined results file
 # Read simulation data in from GitHub repo
-files = paste0("try_mlePossum2_with_Z/", list.files(path = "try_mlePossum2_with_Z/"))
+files = paste0("try_mlePossum2_with_Z/", 
+               list.files(path = "try_mlePossum2_with_Z/"))
 res = do.call(what = rbind, 
               args = lapply(X = files, 
                             FUN = read.csv)
 )
+
+library(ggplot2)
+res |> 
+  dplyr::select(N, ppv, dplyr::ends_with("mle"), -dplyr::starts_with("se")) |> 
+  tidyr::gather(key = "coeff", value = "est", -c(1:2)) |> 
+  dplyr::mutate(coeff = sub("_.*", "", coeff)) |> 
+  dplyr::left_join(
+    res |> 
+      dplyr::select(beta0, beta1, beta2, eta0, eta1) |> 
+      tidyr::gather(key = "coeff", value = "truth")    
+  ) |> 
+  ggplot(aes(x = factor(N), y = est, fill = factor(ppv))) + 
+  geom_boxplot() + 
+  geom_hline(aes(yintercept = truth), linetype = 2) + 
+  facet_wrap(~coeff, scales= "free")
+
 write.csv(x = res,
           file = paste0("try_mlePossum2_with_Z_seed114.csv"), 
           row.names = F)
