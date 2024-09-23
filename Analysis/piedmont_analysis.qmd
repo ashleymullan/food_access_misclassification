@@ -670,13 +670,15 @@ Models are summarized by the estimated prevalence in neighborhoods with the zero
 ## Naive Analysis 
 ```{r primary model fits (naive), warning = FALSE}
 # Model 1a: Diagnosed diabetes among adults aged >=18 years 
+data_1 <- data_1 |> mutate(LogLA = log(LandArea))
+data_5 <- data_5 |> mutate(LogLA = log(LandArea))
 
-mod_diab_bn_gs_1 = summary(glm(formula = Y_DIABETES ~ binX_full + LandArea, 
+mod_diab_bn_gs_1 = summary(glm(formula = Y_DIABETES ~ binX_full + LogLA, 
                family = poisson(link = "log"), 
                offset = log(O_POP),
                data = data_1))$coefficients
 
-mod_diab_bn_gs_5 = summary(glm(formula = Y_DIABETES ~ binX_full + LandArea, 
+mod_diab_bn_gs_5 = summary(glm(formula = Y_DIABETES ~ binX_full + LogLA, 
                family = poisson(link = "log"), 
                offset = log(O_POP),
                data = data_5))$coefficients
@@ -686,12 +688,12 @@ mod_diab_bn_gs <-
         mod_diab_bn_gs_5)
 
 #naive
-mod_diab_bn_n_1 = summary(glm(formula = Y_DIABETES ~ binXstar + LandArea, 
+mod_diab_bn_n_1 = summary(glm(formula = Y_DIABETES ~ binXstar + LogLA, 
                family = poisson(link = "log"), 
                offset = log(O_POP),
                data = data_1))$coefficients
 
-mod_diab_bn_n_5 = summary(glm(formula = Y_DIABETES ~ binXstar + LandArea, 
+mod_diab_bn_n_5 = summary(glm(formula = Y_DIABETES ~ binXstar + LogLA, 
                family = poisson(link = "log"), 
                offset = log(O_POP),
                data = data_5))$coefficients
@@ -701,32 +703,32 @@ mod_diab_bn_n <-
         mod_diab_bn_n_5)
 
 #mles
-mle_diab_bn_1 = possum::mlePossum2(analysis_formula = Y_DIABETES ~ binX_partial + LandArea + offset(O_POP), 
-                                   error_formula = binX_partial ~ binXstar + LandArea, 
+mle_diab_bn_1 = possum::mlePossum2(analysis_formula = Y_DIABETES ~ binX_partial + LogLA + offset(log(O_POP)), 
+                                   error_formula = binX_partial ~ binXstar + LogLA, 
                                    beta_init = "Complete-data", 
                                    eta_init = "Complete-data", 
                                    data = data_1)$coefficients
 
-mle_diab_bn_5 = possum::mlePossum2(analysis_formula = Y_DIABETES ~ binX_partial + LandArea + offset(O_POP), 
-                                   error_formula = binX_partial ~ binXstar + LandArea, 
+mle_diab_bn_5 = possum::mlePossum2(analysis_formula = Y_DIABETES ~ binX_partial + LogLA + offset(log(O_POP)), 
+                                   error_formula = binX_partial ~ binXstar + LogLA, 
                                    beta_init = "Complete-data", 
                                    eta_init = "Complete-data", 
                                    data = data_5)$coefficients
 
 case_studies <- rbind(mle_diab_bn_1,
                       mle_diab_bn_5) |>
-  cbind(Radius = c(rep("One", times = 2),
-                   rep("Five", times = 2)))
+  cbind(Radius = c(rep("One", times = 3),
+                   rep("Five", times = 3)))
 
 case_studies
 
-mod_diab_bn_cc_1 = summary(glm(formula = Y_DIABETES ~ binX_partial + LandArea, 
+mod_diab_bn_cc_1 = summary(glm(formula = Y_DIABETES ~ binX_partial + LogLA, 
                family = poisson(link = "log"), 
                offset = log(O_POP),
                data = data_1 |> filter(!is.na(binX_partial))))$coefficients
 
 
-mod_diab_bn_cc_5 = summary(glm(formula = Y_DIABETES ~ binX_partial + LandArea, 
+mod_diab_bn_cc_5 = summary(glm(formula = Y_DIABETES ~ binX_partial + LogLA, 
                family = poisson(link = "log"), 
                offset = log(O_POP),
                data = data_5 |> filter(!is.na(binX_partial))))$coefficients
@@ -744,14 +746,14 @@ competings <- rbind(mod_diab_bn_gs,
                     mod_diab_bn_cc)[,1:2] #|>
 colnames(case_studies) <- c("Estimate", "Std. Error", "Radius")
 all_real_models <- rbind(competings, case_studies[,1:2]) |>
-  mutate(Coefficient = rep(c("Intercept", "Prevalence Ratio"), 
+  mutate(Coefficient = rep(c("Intercept", "Prevalence Ratio", "Bonus"), 
                            times = 8),
-         Radius = rep(c("1", "1", 
-                        "5", "5"), times = 4),
-         Method = c(rep("Gold Standard", times = 4),
-                    rep("Naive", times = 4),
-                    rep("Complete Case", times = 4),
-                    rep("MLE", times = 4))
+         Radius = rep(c("1", "1", "1", 
+                        "5", "5", "5"), times = 4),
+         Method = c(rep("Gold Standard", times = 6),
+                    rep("Naive", times = 6),
+                    rep("Complete Case", times = 6),
+                    rep("MLE", times = 6))
   )
 
 all_real_models_wide <- all_real_models |>
@@ -768,26 +770,6 @@ colnames(armw) <- c(
 write.csv(armw, "armw.csv")
 
 colnames(all_real_models) <- c("Estimate", "SE", "Coefficient", "Radius", "Method")
-arm_plot_0.5 <- all_real_models |>
-  filter(Coefficient == "Prevalence Ratio") |>
-  filter(Radius == 0.5) |>
-  mutate(Method = factor(Method, levels = c("Naive", "Gold Standard", "MLE", "Complete Case"), labels = c("N", "GS", "MLE", "CC"))) |>
-  ggplot(aes(x = Method, y = exp(Estimate), color = Method)) +
-  geom_pointrange(aes(ymin = exp(Estimate - 1.96*SE), 
-                      ymax = exp(Estimate + 1.96*SE)),
-                  linewidth = 1.1) +
-  geom_errorbar(aes(ymin = exp(Estimate - 1.96*SE), 
-                    ymax = exp(Estimate + 1.96*SE)),
-                linewidth = 1.1) +
-  geom_hline(yintercept = 1, 
-             color = "gray", linetype = "dashed") +
-  theme_minimal() +
-  #ylim(c(0.7, 1.4)) +
-  scale_color_colorblind() +
-  labs(x = "0.5 Mile Radius",
-       y = "") +
-  theme(legend.position = "none", axis.title.x = element_text(size = 12),
-        axis.text.x = element_blank())
 arm_plot_1 <- all_real_models |>
   filter(Coefficient == "Prevalence Ratio") |>
   filter(Radius == 1) |>
