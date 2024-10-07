@@ -1,5 +1,5 @@
 # Load libraries
-library(possum) ## for SMLE
+library(possum) ## for MLE
 library(tictoc) ## to calculate runtime
 
 # Set working directory
