@@ -21,7 +21,7 @@ fix_beta0 = -2.2778541  ## outcome model intercept (leads to ~ 11% prevalence)
 fix_beta2 = 0.1413503 ## log prevalence ratio for Z on Y (given X)
 fix_eta1 = 0.3897812 ## log odds ratio for Z on X (among X* = 1)
 fix_ppv = 0.6 #positive predictive value
-fix_eta0 = log(fix_ppv/(1 - fix_ppv))
+fix_eta0 = log(fix_ppv/(1 - fix_ppv)) ## intercept in the misclassification model
 fix_q = 0.1 ## proportion of neighborhoods queried
 
 # ---------------------------------------------------------------------------------
@@ -86,7 +86,6 @@ for (N in c(390, 2200)) {
       eta0_gs = NA, se_eta0_gs = NA, eta1_gs = NA, se_eta1_gs = NA, ## gold standard analysis (misclassification)
       beta0_n = NA, se_beta0_n = NA, beta1_n = NA, se_beta1_n = NA, beta2_n = NA, se_beta2_n = NA, ## naive analysis (outcome)
       beta0_cc = NA, se_beta0_cc = NA, beta1_cc = NA, se_beta1_cc = NA, beta2_cc = NA, se_beta2_cc = NA, ## complete case analysis (outcome)
-      #eta0_cc = NA, se_eta0_cc = NA, eta1_cc = NA, se_eta1_cc = NA, ## complete case analysis (misclassification)
       beta0_mle = NA, se_beta0_mle = NA, beta1_mle = NA, se_beta2_mle = NA, beta2_mle = NA, se_beta1_mle = NA, ## MLE analysis (outcome)
       eta0_mle = NA, se_eta0_mle = NA, eta1_mle = NA, se_eta1_mle = NA, mle_msg = "", ## MLE analysis (misclassification)
       beta0_mle_strat = NA, se_beta0_mle_strat = NA, beta1_mle_strat = NA, se_beta2_mle_strat = NA, beta2_mle_strat = NA, se_beta1_mle_strat = NA, ## MLE (sample only Y*=1) analysis (outcome)
@@ -157,13 +156,6 @@ for (N in c(390, 2200)) {
                    data = dat)
       sett_res[r, c("beta0_cc", "beta1_cc", "beta2_cc")] = coefficients(fit_cc) ## estimated log prevalence ratio
       sett_res[r, c("se_beta0_cc", "se_beta1_cc", "se_beta2_cc")] = sqrt(diag(vcov(fit_cc))) ## and its standard error
-      ## Error model
-      # fit_cc = glm(formula = binX_srs ~ Z,
-      #              family = binomial,
-      #              data = dat,
-      #              subset = binXstar == 1)
-      # sett_res[r, c("eta0_cc", "eta1_cc")] = coefficients(fit_cc) ## estimated odds ratio
-      # sett_res[r, c("se_eta0_cc", "se_eta1_cc")] = sqrt(diag(vcov(fit_cc))) ## and its standard error
       
       # Fit the MLE for both models at once
       fit_mle = suppressMessages(
@@ -245,5 +237,3 @@ res = do.call(what = rbind,
 write.csv(x = res,
           file = paste0("one_sided_vary_PR.csv"),
           row.names = F)
-
-
