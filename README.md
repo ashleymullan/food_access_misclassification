@@ -49,15 +49,15 @@ The authors gratefully acknowledge [Lotspeich, Mullan, D'Agostino McGowan, and H
 - [Supplemental Figure (Visualize Results)](script-location-here)
 
 ### Data Example
-**Figure** Visualize food access at various radii in the Piedmont Triad
+**Figure.** Visualize food access at various radii in the Piedmont Triad
 - [Script (Generate Figure)](script-location-here)
 
-**Table** Error rates in the Piedmont Triad data
+**Table.** Error rates in the Piedmont Triad data
 - [Script (Generate Table)](script-location-here)
 
-**Figure** Compare estimated diabetes prevalence ratios in the Piedmont Triad under various methods
+**Figure.** Compare estimated diabetes prevalence ratios in the Piedmont Triad under various methods
 - [Script (Generate Figure)](script-location-here)
 
-**Figure** Compare estimated baseline diabetes prevalences in the Piedmont Triad under various methods
+**Figure.** Compare estimated baseline diabetes prevalences in the Piedmont Triad under various methods
 - [Script (Generate Figure)](script-location-here)
 
