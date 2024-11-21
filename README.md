@@ -49,7 +49,7 @@ The authors gratefully acknowledge [Lotspeich, Mullan, D'Agostino McGowan, and H
 - [Supplemental Figure (Visualize Results)](script-location-here)
 
 ### Data Example
-**Figure.** Visualize food access at various radii in the Piedmont Triad
+**Figure.** Create maps of food access at various radii in the Piedmont Triad
 - [Script (Generate Figure)](script-location-here)
 
 **Table.** Error rates in the Piedmont Triad data
