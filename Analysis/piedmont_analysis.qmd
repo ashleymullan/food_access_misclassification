@@ -29,6 +29,8 @@ data_5 <- read.csv("https://raw.githubusercontent.com/ashleymullan/food_access_m
 ## Health outcomes 
 health = read.csv(file = "https://raw.githubusercontent.com/sarahlotspeich/food/main/piedmont-triad-data/disease_prevalences_2022.csv")
 
+data <- read.csv("https://raw.githubusercontent.com/ashleymullan/food_access_misclassification/refs/heads/main/Analysis/piedmont_data.csv")
+
 ## Proximity to health foods based on straight-line and map-based distances (census tracts)
 food_access = read.csv(file = "/Users/ashleymullan/Library/Mobile Documents/com~apple~CloudDocs/Wake-Forest/M.S. Coursework/Research/Food-Access/food_data_private/food/piedmont-triad-data/REVIEW_closest_healthy_foods_store_2022.csv") |> 
   dplyr::bind_rows(
@@ -672,6 +674,8 @@ Models are summarized by the estimated prevalence in neighborhoods with the zero
 # Model 1a: Diagnosed diabetes among adults aged >=18 years 
 data_1 <- data_1 |> mutate(LogLA = log(LandArea))
 data_5 <- data_5 |> mutate(LogLA = log(LandArea))
+data <- data |> mutate(LogLA = log(LandArea))
+
 
 mod_diab_bn_gs_1 = summary(glm(formula = Y_DIABETES ~ binX_full + LogLA, 
                family = poisson(link = "log"), 
@@ -683,44 +687,114 @@ mod_diab_bn_gs_5 = summary(glm(formula = Y_DIABETES ~ binX_full + LogLA,
                offset = log(O_POP),
                data = data_5))$coefficients
 
-mod_diab_bn_gs <-
-  rbind(mod_diab_bn_gs_1,
-        mod_diab_bn_gs_5)
+#mod_diab_bn_gs_1 = summary(glm(formula = Y_DIABETES ~ binX_full + LogLA, 
+#               family = poisson(link = "log"), 
+#               offset = log(O_POP),
+#               data = data_1))$coefficients
+
+#mod_diab_bn_gs_5 = summary(glm(formula = Y_DIABETES ~ binX_full + LogLA, 
+#               family = poisson(link = "log"), 
+#               offset = log(O_POP),
+#               data = data_5))$coefficients
+
+#mod_diab_bn_gs <-
+#  rbind(mod_diab_bn_gs_1,
+#        mod_diab_bn_gs_5)
 
 #naive
+
 mod_diab_bn_n_1 = summary(glm(formula = Y_DIABETES ~ binXstar + LogLA, 
                family = poisson(link = "log"), 
                offset = log(O_POP),
                data = data_1))$coefficients
-
 mod_diab_bn_n_5 = summary(glm(formula = Y_DIABETES ~ binXstar + LogLA, 
                family = poisson(link = "log"), 
                offset = log(O_POP),
                data = data_5))$coefficients
 
-mod_diab_bn_n <-
-  rbind(mod_diab_bn_n_1,
-        mod_diab_bn_n_5)
+#mod_diab_bn_n_1 = summary(glm(formula = Y_DIABETES ~ binXstar + LogLA, 
+#               family = poisson(link = "log"), 
+#               offset = log(O_POP),
+#               data = data_1))$coefficients
+
+#mod_diab_bn_n_5 = summary(glm(formula = Y_DIABETES ~ binXstar + LogLA, 
+#               family = poisson(link = "log"), 
+#               offset = log(O_POP),
+#               data = data_5))$coefficients
+#
+#mod_diab_bn_n <-
+#  rbind(mod_diab_bn_n_1,
+#        mod_diab_bn_n_5)
 
 #mles
-mle_diab_bn_1 = possum::mlePossum2(analysis_formula = Y_DIABETES ~ binX_partial + LogLA + offset(log(O_POP)), 
+
+data_1 <- data_1 |> mutate(logpop = log(O_POP))
+data_5 <- data_5 |> mutate(logpop = log(O_POP))
+mle_diab_bn_1 = possum::mlePossum2(analysis_formula = Y_DIABETES ~ binX_partial + LogLA + offset(logpop), 
                                    error_formula = binX_partial ~ binXstar + LogLA, 
                                    beta_init = "Complete-data", 
                                    eta_init = "Complete-data", 
                                    data = data_1)$coefficients
-
-mle_diab_bn_5 = possum::mlePossum2(analysis_formula = Y_DIABETES ~ binX_partial + LogLA + offset(log(O_POP)), 
+mle_diab_bn_5 = possum::mlePossum2(analysis_formula = Y_DIABETES ~ binX_partial + LogLA + offset(logpop), 
                                    error_formula = binX_partial ~ binXstar + LogLA, 
                                    beta_init = "Complete-data", 
                                    eta_init = "Complete-data", 
                                    data = data_5)$coefficients
 
-case_studies <- rbind(mle_diab_bn_1,
-                      mle_diab_bn_5) |>
-  cbind(Radius = c(rep("One", times = 3),
-                   rep("Five", times = 3)))
+mle_boot_1 <- data.frame(i = rep(NA, times = 1000),
+                         x = rep(NA, times = 1000),
+                         z = rep(NA, times = 1000)) #initialize boot container
 
-case_studies
+set.seed(1031) #be a reproducibility queen
+for(j in 1:1000){ #loop through 1000 bootstrap replicates
+  rows <- sample(1:387, size = 387, replace = TRUE)
+  df <- data_1[rows,]
+  mod <- possum::mlePossum2(analysis_formula = Y_DIABETES ~ binX_partial + LogLA + offset(logpop), 
+                                   error_formula = binX_partial ~ binXstar + LogLA, 
+                                   beta_init = "Complete-data", 
+                                   eta_init = "Complete-data", 
+                                   data = df)#$coefficients
+  mle_boot_1[j,'i'] <- mod[1,1]
+  mle_boot_1[j, 'x'] <- mod[2,1]
+  mle_boot_1[j, 'z'] <- mod[3,1]
+}
+
+mle_boot_5 <- data.frame(i = rep(NA, times = 1000),
+                         x = rep(NA, times = 1000),
+                         z = rep(NA, times = 1000)) #initialize boot container
+
+set.seed(1031) #be a reproducibility queen
+for(j in 1:1000){ #loop through 1000 bootstrap replicates
+  rows <- sample(1:387, size = 387, replace = TRUE)
+  df <- data_5[rows,]
+  mod <- possum::mlePossum2(analysis_formula = Y_DIABETES ~ binX_partial + LogLA + offset(logpop), 
+                                   error_formula = binX_partial ~ binXstar + LogLA, 
+                                   beta_init = "Complete-data", 
+                                   eta_init = "Complete-data", 
+                                   data = df)$coefficients
+  mle_boot_5[j,'i'] <- mod[1,1]
+  mle_boot_5[j, 'x'] <- mod[2,1]
+  mle_boot_5[j, 'z'] <- mod[3,1]
+}
+
+#mle_diab_bn_1 = possum::mlePossum2(analysis_formula = Y_DIABETES ~ binX_partial + LogLA + offset(log(O_POP)), 
+#                                   error_formula = binX_partial ~ binXstar + LogLA, 
+#                                   beta_init = "Complete-data", 
+#                                   eta_init = "Complete-data", 
+#                                   data = data_1)$coefficients
+
+#mle_diab_bn_5 = possum::mlePossum2(analysis_formula = Y_DIABETES ~ binX_partial + LogLA + offset(log(O_POP)), 
+#                                   error_formula = binX_partial ~ binXstar + LogLA, 
+#                                   beta_init = "Complete-data", 
+#                                   eta_init = "Complete-data", 
+#                                   data = data_5)$coefficients
+
+#case_studies <- rbind(mle_diab_bn_1,
+#                      mle_diab_bn_5) |>
+#  cbind(Radius = c(rep("One", times = 3),
+#                   rep("Five", times = 3)))
+
+#case_studies
 
 mod_diab_bn_cc_1 = summary(glm(formula = Y_DIABETES ~ binX_partial + LogLA, 
                family = poisson(link = "log"), 
@@ -740,6 +814,56 @@ mod_diab_bn_cc <-
   rbind(mod_diab_bn_cc_1,
         mod_diab_bn_cc_5)
 
+#bootstrap test plot
+competings_1 <- rbind(mod_diab_bn_gs_1,
+                    mod_diab_bn_n_1,
+                    mod_diab_bn_cc_1)[,1:2] #stack the competing coefficients and std errors
+colnames(mle_diab_bn_1) <- c("Estimate", "Std. Error") #rename mle output to match other 3
+all_real_models_1 <- rbind(competings_1, mle_diab_bn_1) |>
+  mutate(Coefficient = rep(c("Intercept", "Prevalence Ratio", "Bonus"), 
+                           times = 4),
+         Method = c(rep("Gold Standard", times = 3),
+                    rep("Naive", times = 3),
+                    rep("Complete Case", times = 3),
+                    rep("MLE", times = 3))
+  )
+
+all_real_models_wide <- all_real_models |>
+  pivot_wider(names_from = Method,
+              values_from = c("Estimate", "Std. Error"))
+colnames(all_real_models_wide) <- c(
+  "Coefficient", rep(c("Estimate", "Std. Error"), times = 4)) #GS, N, CC, MLE
+
+colnames(all_real_models_1) <- c('Estimate', 'SE', 'Coefficient', 'Method') 
+ 
+arm_plot_1 <- all_real_models_1 |>
+  filter(Coefficient != "Bonus") |>
+  mutate(Method = factor(Method, levels = c("Naive", "Gold Standard", "MLE", "Complete Case"), labels = c("Naive", "Gold Standard", "MLE", "Complete Case")),
+         Coefficient = factor(Coefficient, levels = c("Intercept", "Prevalence Ratio", "Bonus"), labels = c("Baseline Prevalence", "Prevalence Ratio on Food Access", "PR on Log(LA)"))) |>
+  ggplot(aes(x = Method, y = exp(Estimate), color = Method)) +
+  geom_pointrange(aes(ymin = exp(Estimate - 1.96*SE), 
+                      ymax = exp(Estimate + 1.96*SE)),
+                  linewidth = 1.1) +
+  geom_errorbar(aes(ymin = exp(Estimate - 1.96*SE), 
+                    ymax = exp(Estimate + 1.96*SE)),
+                linewidth = 1.1) +
+  #geom_hline(yintercept = 1, 
+  #           color = "gray", linetype = "dashed") +
+  facet_wrap(vars(Coefficient), scales = "free") +
+  theme_minimal() +
+  #ylim(c(0.7, 1.4)) +
+  #scale_color_colorblind() +
+  scale_color_manual(values = c("#ed511f", "#ffb849", "#0a097d", "#8484be")) +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 8)) +
+  labs(x = "",
+       y = "") +
+    theme(axis.title.x = element_text(size = 10), legend.position = "none", strip.background = element_rect(fill = "#ffd697"), strip.text = element_text(color = "black", face = "bold")) 
+  #theme(legend.position = "none", axis.text.x = element_blank(), axis.title.x = element_text(size = 12)) 
+
+ggsave("case-study-plot.png", arm_plot_1, width = 6, height = 4, units = "in", bg = "white")
+```
+
+```{r}
 
 competings <- rbind(mod_diab_bn_gs,
                     mod_diab_bn_n,
