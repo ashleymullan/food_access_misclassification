@@ -2,7 +2,7 @@
 # Simulation Setting: Varied Error (One-Sided)
 
 # Load Libraries
-library(possum) ## for MLE
+library(possum)#, lib.loc = "~/R/rlib") ## for MLE
 library(tictoc) ## to calculate runtime
 
 # Set working directory
@@ -15,7 +15,7 @@ setwd(paste0(local_string, repo_string))
 sim_seed <- 1031
 
 # Number of replicates per simulation setting
-num_reps <- 10
+num_reps <- 1000
 
 # Set parameters that won't be varied in the loop
 ## These values will be set as the defaults in the sim_data() function for convenience
@@ -152,28 +152,38 @@ for (N in N_list) { ## iterate through sample sizes
         results[r, c("beta0_cc", "beta1_cc", "beta2_cc")] = coefficients(fit_cc) ## estimated log prevalence ratio
         results[r, c("se_beta0_cc", "se_beta1_cc", "se_beta2_cc")] = sqrt(diag(vcov(fit_cc))) ## and its standard error
 
-        # Fit the MLE for both models at once
-        fit_mle = suppressMessages(
-          mlePossum(analysis_formula = Cases ~ binX + Z + offset(log(P)),
-                    error_formula = binX ~ binXstar + Z,
-                    data = dat,
-                    noSE = FALSE,
-                    alternative_SE = TRUE)
-          )
-        results[r, c("beta0_mle", "beta1_mle", "beta2_mle")] = fit_mle$coefficients$coeff ## estimated log prevalence ratio
-        results[r, c("se_beta0_mle", "se_beta1_mle", "se_beta2_mle")] = fit_mle$coefficients$se ## and its standard error
-        results[r, c("eta0_mle", "eta1_mle")] = fit_mle$misclass_coefficients$coeff ## estimated log odds ratio
-        results[r, c("se_eta0_mle", "se_eta1_mle")] = fit_mle$misclass_coefficients$se ## and its standard error
-        results[r, "mle_msg"] = fit_mle$converged_msg
-      }
 
+        # Fit the MLE (temp if/else to catch queried ppv = 1 issue)
+        if(queried_ppv != 1) {
+          fit_mle <- suppressMessages(
+            mlePossum(analysis_formula = Cases ~ binX + Z + offset(log(P)),
+                      error_formula = binX ~ binXstar + Z,
+                      data = dat,
+                      noSE = FALSE,
+                      alternative_SE = TRUE)
+            )
+          results[r, c("beta0_mle", "beta1_mle", "beta2_mle")] = fit_mle$coefficients$coeff ## estimated log prevalence ratio
+          results[r, c("se_beta0_mle", "se_beta1_mle", "se_beta2_mle")] = fit_mle$coefficients$se ## and its standard error
+          results[r, c("eta0_mle", "eta1_mle")] = fit_mle$misclass_coefficients$coeff ## estimated log odds ratio
+          results[r, c("se_eta0_mle", "se_eta1_mle")] = fit_mle$misclass_coefficients$se ## and its standard error
+          results[r, "mle_msg"] = fit_mle$converged_msg
+        }
+        else{
+          results[r, c("beta0_mle", "beta1_mle", "beta2_mle")] = results[r, c("beta0_n", "beta1_n", "beta2_n")] ## estimated log prevalence ratio
+          results[r, c("se_beta0_mle", "se_beta1_mle", "se_beta2_mle")] = results[r, c("se_beta0_n", "se_beta1_n", "se_beta2_n")] ## and its standard error
+          results[r, "mle_msg"] = "naive used as replacement, edge case"
+        }
+
+
+
+      } ## end loop over the reps
         # Save results from all reps
         write.csv(x = results,
                   file = paste0("varyPPV_N", N, "_ppv", 100 * ppv, "_seed", sim_seed, ".csv"),
                   row.names = F)
         toc() ## End runtime for sims with current N and ppv
     } ## end loop over ppv
-} #end loop over N
+} ## end loop over N
 
 # Timing from tictoc:
 # Sims with N = 390: 712.096 sec elapsed
@@ -189,6 +199,6 @@ res = do.call(what = rbind,
 )
 
 write.csv(x = res,
-          file = paste0("TESTRUN.csv"),
+          file = paste0("one-sided-vary-ppv.csv"),
           row.names = F)
 
