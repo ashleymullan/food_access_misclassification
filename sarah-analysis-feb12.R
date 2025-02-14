@@ -36,13 +36,13 @@ m1 <- mlePossum(analysis_formula = Y_DIABETES ~ X1mile_miss * METRO + offset(log
                 hN_scale = 0.5)
 
 m1_nd <- mlePossum(analysis_formula = Y_DIABETES ~ X1mile_miss * METRO + offset(log(O_POP)),
-                  family = poisson,
-                  error_formula = X1mile_miss ~ Xstar1mile * METRO,
-                  data = data,
-                  beta_init = "Complete-data",
-                  eta_init = "Complete-data",
-                  noSE = FALSE,
-                  alternative_SE = TRUE)
+                   family = poisson,
+                   error_formula = X1mile_miss ~ Xstar1mile * METRO,
+                   data = data,
+                   beta_init = "Complete-data",
+                   eta_init = "Complete-data",
+                   noSE = FALSE,
+                   alternative_SE = TRUE)
 
 #cc
 c1 <- summary(glm(formula = Y_DIABETES ~ X1mile_miss * METRO + offset(log(O_POP)),
