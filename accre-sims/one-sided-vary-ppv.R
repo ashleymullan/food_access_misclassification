@@ -7,7 +7,7 @@ library(tictoc) ## to calculate runtime
 
 # Set working directory
 local_string <- "/Users/ashleymullan/Documents/Food-Access/"
-repo_string <- "food_access_misclassification/accre-sims/"
+repo_string <- "food_access_misclassification/accre-sims/check-me/"
 
 setwd(paste0(local_string, repo_string))
 
@@ -158,14 +158,16 @@ for (N in N_list) { ## iterate through sample sizes
           fit_mle <- suppressMessages(
             mlePossum(analysis_formula = Cases ~ binX + Z + offset(log(P)),
                       error_formula = binX ~ binXstar + Z,
+                      beta_init = "Complete-data",
+                      eta_init = "Complete-data",
                       data = dat,
                       noSE = FALSE,
                       alternative_SE = TRUE)
             )
-          results[r, c("beta0_mle", "beta1_mle", "beta2_mle")] = fit_mle$coefficients$coeff ## estimated log prevalence ratio
-          results[r, c("se_beta0_mle", "se_beta1_mle", "se_beta2_mle")] = fit_mle$coefficients$se ## and its standard error
-          results[r, c("eta0_mle", "eta1_mle")] = fit_mle$misclass_coefficients$coeff ## estimated log odds ratio
-          results[r, c("se_eta0_mle", "se_eta1_mle")] = fit_mle$misclass_coefficients$se ## and its standard error
+          results[r, c("beta0_mle", "beta1_mle", "beta2_mle")] = fit_mle$coefficients[,"Estimate"] ## estimated log prevalence ratio
+          results[r, c("se_beta0_mle", "se_beta1_mle", "se_beta2_mle")] = fit_mle$coefficients[,"Std. Error"] ## and its standard error
+          results[r, c("eta0_mle", "eta1_mle")] = fit_mle$misclass_coefficients[,"Estimate"] ## estimated log odds ratio
+          results[r, c("se_eta0_mle", "se_eta1_mle")] = fit_mle$misclass_coefficients[,"Std. Error"] ## and its standard error
           results[r, "mle_msg"] = fit_mle$converged_msg
         }
         else{

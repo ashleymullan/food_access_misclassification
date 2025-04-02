@@ -47,75 +47,98 @@ vq_long <- pivot(results_list$q)
 
 
 #define base plot function
-plot_base <- function(df_long, x_name, xlab, truth = FALSE){
+plot_base <- function(df_long, x_name, xlab, truth = FALSE, legend_position = "NONE"){
   df <- data.frame(x = df_long |> pull(x_name) |> as.factor(),
-                   y = df_long |> pull(betahat1),
+                   y = df_long |> pull(betahat1) |> exp(),
                    n = df_long |> pull("N") |> as.character(),
                    method_type = case_when(
                      df_long$method_type == "beta1_gs" ~ "Gold Standard",
                      df_long$method_type == "beta1_cc" ~ "Complete Case",
                      df_long$method_type == "beta1_mle" ~ "MLE",
                      df_long$method_type == "beta1_n" ~ "Naive"))
+
+  ## save true ratio if we have a fixed truth
+  ### note: we picked max but it doesn't matter because they all match
+  if(truth){true_hr <- df_long |> pull(beta1) |> max() |> exp() }
+
   df <- df |>
-    #filter(abs(y) < 3) |>
     mutate(method_type = factor(method_type,
                                 levels = c("Naive", "Gold Standard",
                                            "MLE", "Complete Case")),
            n = factor(n, levels = c("390", "2200"),
                       labels = c("N = 390", "N = 2200")))
-  p <- df |> ggplot(aes(x = x, y = y)) +
-    geom_hline(yintercept = 0.1765, color = "magenta") +
+
+  ## start building the plot
+  p <- df |> ggplot(aes(x = x, y = y))
+
+  ## add reference line if we have the fixed truth
+  if(truth) {
+    p <- p + geom_hline(yintercept = true_hr,
+                        color = "gray",
+                        linetype = "dashed")
+  }
+
+  ## continue building plot
+  p <- p +
     geom_boxplot(aes(fill = method_type)) +
     facet_wrap(vars(n)) +
-    theme_minimal() +
+    theme_bw() +
     labs(x = xlab,
-         y = TeX("$\\hat{\\beta_1}$"),
+         y = TeX("$exp(\\hat{\\beta_1}$)"),
          title = "",
          fill = "Method") +
     scale_fill_colorblind() +
-    theme(legend.position = "top")
-  #add a reference line for all necessary cases (fixed prevalence ratio)
-  #if(truth) {
-  #  print("made it here")
-  #  yint = df$beta1[1]
-  #  p <- p + geom_hline(yintercept = as.numeric(yint),
-  #                               color = "magenta",
-  #                               linetype = "dashed",
-  #                               linewidth = 5)}
-
-  #little tweaks for specific axis labeling
-
-  #if(x_name == "q") {
-  #  df <- df |> mutate(q_labs = paste0(100 * q, "%"))
-  #  p <- p + scale_x_discrete(labels = unique(df$q_labs))}
-  #if(x_name == "b0") {p <- p + scale_x_discrete(labels = c('5%', '10%', '35%'))}
-  #if(x_name == "b1") {p <- p + scale_x_discrete(labels = c('1.1', '1.17', '1.25'))}
+    theme(legend.position = legend_position,
+          strip.background = element_rect(fill = "#ffd3fa"),
+          plot.margin = unit(c(5,5,5,5), "mm"))
   return(p)
 }
 
 #run the plots
-vq_plot <- plot_base(vq_long, "q", "Query Percentage", truth = TRUE)
-vppv_plot <- plot_base(vppv_long, "ppv", "Positive Predictive Value", FALSE)
+vq_plot <- plot_base(vq_long, "q", "Query Percentage", truth = TRUE) +
+  scale_x_discrete(labels = c("10%", "25%", "50%", "75%"))
+vppv_plot <- plot_base(vppv_long |> ## filter to make graph readable, omits 28 points
+                         filter(exp(betahat1) < 1.3) |> ## drops extreme outliers that make graph unreadable
+                         filter(exp(betahat1) > 1.07), ## drops extreme outliers that make graph unreadable
+                       "ppv", "Positive Predictive Value",
+                       truth = TRUE) +
+  scale_x_discrete(labels = c("50%", "60%","70%", "80%", "90%"))
+vq_plot_no_legend <- plot_base(vq_long, "q", "Query Percentage", truth = TRUE) +
+  scale_x_discrete(labels = c("10%", "25%", "50%", "75%"))
+vppv_plot <- plot_base(vppv_long |> ## filter to make graph readable, omits 28 points
+                         filter(exp(betahat1) < 1.3) |> ## drops extreme outliers that make graph unreadable
+                         filter(exp(betahat1) > 1.07), ## drops extreme outliers that make graph unreadable
+                       "ppv", "Positive Predictive Value",
+                       truth = TRUE) +
+  scale_x_discrete(labels = c("50%", "60%","70%", "80%", "90%"))
+
+#throw naive out for a better visual
+vq_plot_no_naive <- plot_base(vq_long |> filter(method_type != "beta1_n"),
+                              "q", "Query Percentage", truth = TRUE) +
+  scale_x_discrete(labels = c("10%", "25%", "50%", "75%")) +
+  scale_fill_manual(values = c("#E69F00", "#56B4E9", "#009E73"))
+vppv_plot_no_naive <- plot_base(vppv_long |>
+                                  filter(method_type != "beta1_n") |>
+                                  filter(exp(betahat1) < 1.31) |>
+                                  filter(exp(betahat1) > 1.08), ## takes out 28 extreme outliers for better visual
+                              "ppv", "Positive Predictive Value", truth = TRUE) +
+  scale_x_discrete(labels = c("50%", "60%", "70%", "80%", "90%")) +
+  scale_fill_manual(values = c("#E69F00", "#56B4E9", "#009E73"))
 
 #save the plots
-ggsave(filename = "vq_plot.pdf",
-       plot = vq_plot,
-       width = 5,
-       height = 3.5,
-       units = "in")
-ggsave(filename = "vpr_plot.pdf",
-       plot = vpr_plot,
-       width = 5,
-       height = 3.5,
-       units = "in")
-ggsave(filename = "vb0_plot.pdf",
-       plot = vb0_plot,
-       width = 5,
-       height = 3.5,
-       units = "in")
-ggsave(filename = "vb1_plot.pdf",
-       plot = vb1_plot,
-       width = 5,
-       height = 3.5,
-       units = "in")
+
+save_plot <- function(plot, path = paste0(getwd(), "/plots/")){
+  fn <- paste0(deparse(substitute(plot)), ".pdf")
+  ggsave(filename = fn,
+         path = path,
+         width = 5,
+         height = 3.5,
+         units = "in")
+}
+
+save_plot(vq_plot)
+save_plot(vq_plot_no_naive)
+save_plot(vq_plot_no_legend)
+save_plot(vppv_plot)
+save_plot(vppv_plot_no_naive)
 
