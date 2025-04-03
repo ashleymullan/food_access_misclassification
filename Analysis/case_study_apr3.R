@@ -59,23 +59,23 @@ query_rows5 <- sample(query_cands5, size = n, replace = FALSE)
 queried_ids5 <- data$GEOID[query_rows5]
 
 ## (Sarah's version)
-data$query_indh <- 0 ### initialize all unqueried 
-data$query_indh[data$Xstarh == 1] <- sample_cc(dat = data[data$Xstarh == 1, ], 
-                                               phI = nrow(data[data$Xstarh == 1, ]), 
-                                               phII = n, 
-                                               sample_on = "METRO", 
+data$query_indh <- 0 ### initialize all unqueried
+data$query_indh[data$Xstarh == 1] <- sample_cc(dat = data[data$Xstarh == 1, ],
+                                               phI = nrow(data[data$Xstarh == 1, ]),
+                                               phII = n,
+                                               sample_on = "METRO",
                                                prop_cases = 0.5)
-data$query_ind1 <- 0 ### initialize all unqueried 
-data$query_ind1[data$Xstar1 == 1] <- sample_cc(dat = data[data$Xstar1 == 1, ], 
-                                               phI = nrow(data[data$Xstar1 == 1, ]), 
-                                               phII = n, 
-                                               sample_on = "METRO", 
+data$query_ind1 <- 0 ### initialize all unqueried
+data$query_ind1[data$Xstar1 == 1] <- sample_cc(dat = data[data$Xstar1 == 1, ],
+                                               phI = nrow(data[data$Xstar1 == 1, ]),
+                                               phII = n,
+                                               sample_on = "METRO",
                                                prop_cases = 0.5)
-data$query_ind5 <- 0 ### initialize all unqueried 
-data$query_ind5[data$Xstar5 == 1] <- sample_cc(dat = data[data$Xstar5 == 1, ], 
-                                               phI = nrow(data[data$Xstar5 == 1, ]), 
-                                               phII = n, 
-                                               sample_on = "METRO", 
+data$query_ind5 <- 0 ### initialize all unqueried
+data$query_ind5[data$Xstar5 == 1] <- sample_cc(dat = data[data$Xstar5 == 1, ],
+                                               phI = nrow(data[data$Xstar5 == 1, ]),
+                                               phII = n,
+                                               sample_on = "METRO",
                                                prop_cases = 0.5)
 
 ## remove nonqueried X at each radius
@@ -88,16 +88,16 @@ data$query_ind5[data$Xstar5 == 1] <- sample_cc(dat = data[data$Xstar5 == 1, ],
 data <- data |>
   mutate(
     Xh_partial = case_when(
-      Xstarh == 1 & query_indh == 1 ~ Xh, 
+      Xstarh == 1 & query_indh == 1 ~ Xh,
       Xstarh == 0 ~ 0,
-      .default = NA), 
+      .default = NA),
     X1_partial = case_when(
-      Xstar1 == 1 & query_ind1 == 1 ~ X1, 
-      Xstar1 == 0 ~ 0, 
-      .default = NA), 
+      Xstar1 == 1 & query_ind1 == 1 ~ X1,
+      Xstar1 == 0 ~ 0,
+      .default = NA),
     X5_partial = case_when(
-      Xstar5 == 1 & query_ind5 == 1 ~ X5, 
-      Xstar5 == 0 ~ 0, 
+      Xstar5 == 1 & query_ind5 == 1 ~ X5,
+      Xstar5 == 0 ~ 0,
       .default = NA)
     )
 
@@ -270,7 +270,7 @@ one_mile <- one_mile |>
   ## code indicators for interest in specific rows
   mutate(non_metro = coef %in% c("X1", "Xstar1", "X1_partial", "X1_partial1"),
          metro = coef %in% c("mg", "mg1", "mg2", "mg3")) |>
-  mutate(img = ifelse(metro, emojis["metro"], emojis["nonmetro"])) |> ## grab images
+  #mutate(img = ifelse(metro, emojis["metro"], emojis["nonmetro"])) |> ## grab images
   mutate(pr = exp(Estimate)) |> ## exponentiate for prevalence ratio (pr)
   mutate(ub = exp(Estimate + 1.96 * `Std. Error`), ## upper CI bound for pr
          lb = exp(Estimate - 1.96 * `Std. Error`)) ## lower CI bound for pr
@@ -394,7 +394,7 @@ half_mile <- half_mile |>
   ## code indicators for interest in specific rows
   mutate(non_metro = coef %in% c("Xh", "Xstarh", "Xh_partial", "Xh_partial1"),
          metro = coef %in% c("mg", "mg1", "mg2", "mg3")) |>
-  mutate(img = ifelse(metro, emojis["metro"], emojis["nonmetro"])) |> ## grab images
+  #mutate(img = ifelse(metro, emojis["metro"], emojis["nonmetro"])) |> ## grab images
   mutate(pr = exp(Estimate)) |> ## exponentiate for prevalence ratio (pr)
   mutate(ub = exp(Estimate + 1.96 * `Std. Error`), ## upper CI bound for pr
          lb = exp(Estimate - 1.96 * `Std. Error`)) ## lower CI bound for pr
@@ -469,27 +469,27 @@ half_mile_plot <- half_mile |>
 one_and_half_mile_plot <- half_mile |>
   ## grab only the correct coefficients and set up to facet
   filter(metro | non_metro) |>
-  mutate(threshold = "Threshold: 1/2 Mile") |> 
+  mutate(threshold = "Threshold: 1/2 Mile") |>
   bind_rows(
     one_mile |>
       ## grab only the correct coefficients and set up to facet
       filter(metro | non_metro) |>
       mutate(threshold = "Threshold: 1 Mile")
-  ) |> 
+  ) |>
   ## build plot
-  mutate(metro = ifelse(metro, "Metropolitan Tracts", "Non-Metropolitan Tracts"), 
-         threshold = factor(x = threshold, 
+  mutate(metro = ifelse(metro, "Metropolitan Tracts", "Non-Metropolitan Tracts"),
+         threshold = factor(x = threshold,
                             levels = c("Threshold: 1/2 Mile", "Threshold: 1 Mile"))) |>
   ggplot(aes(x = model, y = pr, color = metro)) +
   geom_hline(yintercept = 1, color = 'gray',
              linewidth = 1, linetype = "dashed") +
   geom_point(position = position_dodge(width = 0.5)) +
   geom_errorbar(aes(ymax = ub, ymin = lb),
-                position = position_dodge(width = 0.5), 
+                position = position_dodge(width = 0.5),
                 width = 0.15,
                 linewidth = 1) +
-  scale_color_manual(values = c("#56B4E9", "maroon"), name = "") + 
-  #ggthemes::scale_color_colorblind(name = "") + 
+  scale_color_manual(values = c("#56B4E9", "maroon"), name = "") +
+  #ggthemes::scale_color_colorblind(name = "") +
   theme_classic() +
   theme(legend.position = "top",
         #plot.margin = unit(c(1,1,1,1), "cm"),
@@ -501,11 +501,13 @@ one_and_half_mile_plot <- half_mile |>
                                     size = 8),
         axis.title.y = element_text(size = 8),
         #axis.text = element_text(size = 8),
-        strip.background = element_rect(fill = "black"), 
-        strip.text = element_text(color = "white")) +
+        strip.background = element_rect(fill = "black"),
+        strip.text = element_text(color = "white"),
+        legend.box.margin = unit(c(1,1,-0.5,1), "cm"),
+        legend.background = element_blank()) +
   labs(title = "",
        x = "Analysis Method",
-       y = "Prevalence Ratio (Access vs. No Access)") + 
+       y = "Prevalence Ratio (Access vs. No Access)") +
   facet_wrap(~threshold)
 
 # make (cutesy) plots!
