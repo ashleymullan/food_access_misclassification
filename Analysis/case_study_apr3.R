@@ -8,8 +8,8 @@ library(ggthemes) ## for colorblind palette
 library(tidycensus) ## for shapefiles
 library(auditDesignR) ## for query study design
 
-#local_dir <- "/Users/ashleymullan/Documents/Food-Access/"
-local_dir <- "~/Documents/"
+local_dir <- "/Users/ashleymullan/Documents/Food-Access/"
+#local_dir <- "~/Documents/"
 plot_path <- "food_access_misclassification/Analysis/plots/"
 emoji_path <- "food_access_misclassification/Analysis/"
 
