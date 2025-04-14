@@ -4,6 +4,7 @@
 # Load Libraries
 library(possum)#, lib.loc = "~/R/rlib") ## for MLE
 library(tictoc) ## to calculate runtime
+library(dplyr) ## for data wrangling
 
 # Set working directory
 local_string <- "/Users/ashleymullan/Documents/Food-Access/"
@@ -90,7 +91,7 @@ for (N in N_list) { ## iterate through sample sizes
         beta0_n = NA, se_beta0_n = NA, beta1_n = NA, se_beta1_n = NA, beta2_n = NA, se_beta2_n = NA, ## naive analysis (outcome)
         beta0_cc = NA, se_beta0_cc = NA, beta1_cc = NA, se_beta1_cc = NA, beta2_cc = NA, se_beta2_cc = NA, ## complete case analysis (outcome)
         beta0_mle = NA, se_beta0_mle = NA, beta1_mle = NA, se_beta2_mle = NA, beta2_mle = NA, se_beta1_mle = NA, ## MLE analysis (outcome)
-        eta0_mle = NA, se_eta0_mle = NA, eta1_mle = NA, se_eta1_mle = NA, mle_msg = "", ## MLE analysis (misclassification)
+        eta0_mle = NA, se_eta0_mle = NA, eta1_mle = NA, se_eta1_mle = NA, eta2_mle = NA, se_eta2_mle = NA, mle_msg = "", ## MLE analysis (misclassification)
         sim_msg = "", CHECKME = NA ## convergence message
       )
 
@@ -99,7 +100,7 @@ for (N in N_list) { ## iterate through sample sizes
 
         # Generate data
         dat <- sim_data(N  = N, ## sample size
-                     eta0 = eta0) ## intercept in misclassification mechanism
+                        eta0 = eta0) ## intercept in misclassification mechanism
 
         #CHECK
         tp <- dat |> dplyr::filter(binX == 1 & binXstar == 1) |> nrow()
@@ -175,15 +176,15 @@ for (N in N_list) { ## iterate through sample sizes
                 beta_init = "Complete-data",
                 eta_init = "Complete-data",
                 data = dat,
-                noSE = TRUE,
+                noSE = FALSE,
                 alternative_SE = TRUE
               )
             )
 
             results[r, c("beta0_mle", "beta1_mle", "beta2_mle")] <- fit_mle$coefficients[,"Estimate"]  # estimated log prevalence ratio
             results[r, c("se_beta0_mle", "se_beta1_mle", "se_beta2_mle")] <- fit_mle$coefficients[,"Std. Error"]  # standard error
-            results[r, c("eta0_mle", "eta1_mle")] <- fit_mle$misclass_coefficients[,"Estimate"]  # estimated log odds ratio
-            results[r, c("se_eta0_mle", "se_eta1_mle")] <- fit_mle$misclass_coefficients[,"Std. Error"]  # standard error
+            results[r, c("eta0_mle", "eta1_mle", "eta2_mle")] <- fit_mle$misclass_coefficients[,"Estimate"]  # estimated log odds ratio
+            results[r, c("se_eta0_mle", "se_eta1_mle", "se_eta2_mle")] <- fit_mle$misclass_coefficients[,"Std. Error"]  # standard error
             results[r, "mle_msg"] <- fit_mle$converged_msg
           }, error = function(e) {
             message("MLE fitting failed at iteration ", r, ": ", e$message)
@@ -221,7 +222,11 @@ res = do.call(what = rbind,
                             FUN = read.csv)
 )
 
-res |> select(ppv, N, CHECKME) |> group_by(ppv, N) |> summarize(mean_true = mean(CHECKME), sd_true = sd(CHECKME))
+res |> 
+  select(ppv, N, CHECKME) |> 
+  group_by(ppv, N) |> 
+  summarize(mean_true = mean(CHECKME), 
+            sd_true = sd(CHECKME))
 
 write.csv(x = res,
           file = paste0("two-sided-vary-ppv.csv"),
