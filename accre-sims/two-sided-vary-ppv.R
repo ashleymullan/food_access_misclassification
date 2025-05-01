@@ -16,14 +16,14 @@ setwd(paste0(local_string, repo_string))
 sim_seed <- 1031
 
 # Number of replicates per simulation setting
-num_reps <- 10
+num_reps <- 1000
 
 # Set parameters that won't be varied in the loop
 ## These values will be set as the defaults in the sim_data() function for convenience
 f_beta0 <- -2.2778541  ## outcome model intercept (leads to ~ 11% prevalence)
 f_beta1 <- 0.1764544 ## log prevalence ratio for X on Y (given Z)
 f_beta2 <- 0.1413503 ## log prevalence ratio for Z on Y (given X)
-f_eta1 <- 0.3897812 ## log odds ratio for Z on X
+f_eta0 <- -1.098612 ## intercept of error model, forces NPV = 0.75
 f_eta2 <- 0.3364722 ## log odds ratio for X* on X
 f_q <- 0.1 ## proportion of neighborhoods queried
 
@@ -36,7 +36,7 @@ f_q <- 0.1 ## proportion of neighborhoods queried
 ## eta1 = log odds ratio of land area on access
 # ---------------------------------------------------------------------------------
 sim_data <- function(N, beta0 = f_beta0, beta1 = f_beta1, beta2 = f_beta2,
-                    eta0, eta1 = f_eta1, eta2 = f_eta2) {
+                    eta0 = f_eta0, eta1, eta2 = f_eta2) {
   ## Simulate land area Z
   Z <- rgamma(n = N,
              shape = 0.6,
@@ -68,31 +68,28 @@ sim_data <- function(N, beta0 = f_beta0, beta1 = f_beta1, beta2 = f_beta2,
 
 # Set parameters to vary in the loop
 ppv_list <- c(0.5, 0.6, 0.7, 0.8, 0.9) ## list of candidate positive predictive values
-#eta0_list <- c(-0.395, -0.05, 0.35, 0.88, 1.72)
 N_list <- c(390,2200) ## small (Piedmont Triad) and large (NC) full sample sizes
 
 # Loop over all settings
 for (N in N_list) { ## iterate through sample sizes
-    for (ppv_index in 1:5){ ## iterate through sample sizes
+    for (ppv in ppv_list){ ## iterate through sample sizes
 
       tic(paste("Sims with N =", N,
-                "and ppv =", ppv_list[ppv_index])) ## start counting runtime
+                "and ppv =", ppv)) ## start counting runtime
       set.seed(sim_seed) ## set random seed (reproducibility rocks!)
 
-      ppv <- ppv_list[ppv_index] #set target ppv for setting
-      #eta0 <- eta0_list[ppv_index] #set misclassification intercept to get approx ppv
-      eta0 <- log(ppv) - log(1 - ppv) - f_eta1
+      eta1 <- -1 * log((1-ppv)/ppv) - f_eta0
 
       results <- data.frame( ## initialize results container
         sim = paste0("seed",sim_seed, "-run",1:num_reps), ## run label
-        N, beta0 = f_beta0, beta1 = f_beta1, beta2 = f_beta2, q = f_q, eta1 = f_eta1, ## fixed simulation setting
-        eta0 = eta0, ppv = ppv, queried_ppv = NA, avg_prev = NA, fpr = NA, ## simulation setting
+        N, beta0 = f_beta0, beta1 = f_beta1, beta2 = f_beta2, q = f_q, eta1 = eta1, ## fixed simulation setting
+        eta0 = f_eta0, eta2 = f_eta2, ppv = ppv, queried_ppv = NA, avg_prev = NA, fpr = NA, ## simulation setting
         beta0_gs = NA, se_beta0_gs = NA, beta1_gs = NA, se_beta1_gs = NA, beta2_gs = NA, se_beta2_gs = NA, ## gold standard analysis (outcome)
         beta0_n = NA, se_beta0_n = NA, beta1_n = NA, se_beta1_n = NA, beta2_n = NA, se_beta2_n = NA, ## naive analysis (outcome)
         beta0_cc = NA, se_beta0_cc = NA, beta1_cc = NA, se_beta1_cc = NA, beta2_cc = NA, se_beta2_cc = NA, ## complete case analysis (outcome)
         beta0_mle = NA, se_beta0_mle = NA, beta1_mle = NA, se_beta2_mle = NA, beta2_mle = NA, se_beta1_mle = NA, ## MLE analysis (outcome)
         eta0_mle = NA, se_eta0_mle = NA, eta1_mle = NA, se_eta1_mle = NA, eta2_mle = NA, se_eta2_mle = NA, mle_msg = "", ## MLE analysis (misclassification)
-        sim_msg = "", CHECKME = NA ## convergence message
+        sim_msg = "" ## convergence message
       )
 
       # Loop over replicates
@@ -100,12 +97,7 @@ for (N in N_list) { ## iterate through sample sizes
 
         # Generate data
         dat <- sim_data(N  = N, ## sample size
-                        eta0 = eta0) ## intercept in misclassification mechanism
-
-        #CHECK
-        tp <- dat |> dplyr::filter(binX == 1 & binXstar == 1) |> nrow()
-        fp <- dat |> dplyr::filter(binX == 0 & binXstar == 1) |> nrow()
-        results$CHECKME[r] <- tp / (tp + fp)
+                        eta1 = eta1) ## intercept in misclassification mechanism
 
         # Save average neighborhood prevalence
         results$avg_prev[r] <- mean(dat$Cases / dat$P)
@@ -203,7 +195,7 @@ for (N in N_list) { ## iterate through sample sizes
       } ## end loop over the reps
         # Save results from all reps
         write.csv(x = results,
-                  file = paste0("CRASHTEST", "vary2PPV_N", N, "_ppv", 100 * ppv_list[ppv_index], "_seed", sim_seed, ".csv"),
+                  file = paste0("vary2PPV_N", N, "_ppv", 100 * ppv, "_seed", sim_seed, ".csv"),
                   row.names = F)
         toc() ## End runtime for sims with current N and ppv
     } ## end loop over ppv
@@ -222,11 +214,7 @@ res = do.call(what = rbind,
                             FUN = read.csv)
 )
 
-res |> 
-  select(ppv, N, CHECKME) |> 
-  group_by(ppv, N) |> 
-  summarize(mean_true = mean(CHECKME), 
-            sd_true = sd(CHECKME))
+
 
 write.csv(x = res,
           file = paste0("two-sided-vary-ppv.csv"),
