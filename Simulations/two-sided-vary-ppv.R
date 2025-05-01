@@ -1,5 +1,5 @@
 
-# Simulation Setting: Varied Error (One-Sided)
+# Simulation Setting: Varied Error (Two-Sided)
 
 # Load Libraries
 library(possum)#, lib.loc = "~/R/rlib") ## for MLE
@@ -7,8 +7,8 @@ library(tictoc) ## to calculate runtime
 library(dplyr) ## for data wrangling
 
 # Set working directory
-local_string <- "/Users/ashleymullan/Documents/Food-Access/"
-repo_string <- "food_access_misclassification/accre-sims/"
+local_string <- "/Users/ashleymullan/Documents/Food-Access/" #change me as needed
+repo_string <- "food_access_misclassification/Simulations/"
 
 setwd(paste0(local_string, repo_string))
 

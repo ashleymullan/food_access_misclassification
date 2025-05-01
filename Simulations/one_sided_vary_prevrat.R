@@ -3,9 +3,8 @@ library(possum) ## for MLE
 library(tictoc) ## to calculate runtime
 
 # Set working directory
-local_string <- "/Users/ashleymullan/Documents/Food-Access/"
-#local_string <- "/Users/lotspes/Documents/"
-repo_string <- "food_access_misclassification/accre-sims"
+local_string <- "/Users/ashleymullan/Documents/Food-Access/" #change me as needed
+repo_string <- "food_access_misclassification/Simulations"
 setwd(paste0(local_string, repo_string))
 
 # Random seed to be used for each simulation setting
