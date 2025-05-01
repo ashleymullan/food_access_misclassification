@@ -8,23 +8,33 @@ library(ggthemes)
 
 ##replace local_string with where you keep your github repo directory
 local_string <- "/Users/ashleymullan/Documents/Food-Access/"
-repo_string <- "food_access_misclassification/accre-sims/"
+repo_string <- "food_access_misclassification/Simulations/"
 setwd(paste0(local_string, repo_string))
 
 
 #Create list of sim results
-base <- "one-sided-vary-"
+base1 <- "one-sided-vary-"
+base2 <- "two-sided-vary-"
 extension <- ".csv"
-num_variations <- 2 #change me as I run more sims
-varied <- c("ppv", "q") #change me as I run more sims
+num_variations1 <- 4 #one sided variations (change as needed)
+num_variations2 <- 1 #two sided variations (change as needed)
+total_variations <- num_variations1 + num_variations2
+varied <- c("ppv", "q", "prev", "prevrat")
 
-files <- rep(NA, times = num_variations)
-for(i in 1:num_variations){
-  files[i] <- paste0(base, varied[i], extension)
+files <- rep(NA, times = total_variations) #set up the list of files to read
+
+for(i in 1:num_variations1){ #build the file names for the one sided variations
+  files[i] <- paste0(base1, varied[i], extension)
+}
+for(i in 1:num_variations2){ #build the file names for the two sided variations
+  files[num_variations1 + i] <- paste0(base2, varied[i], extension)
 }
 
-results_list <- list(ppv = read.csv(files[1]),
-                     q = read.csv(files[2]))
+#read all results files into one place
+results_list <- vector(mode = "list", length = total_variations)
+for(i in 1:total_variations) {
+  results_list[[i]] <- read.csv(files[i])
+  names(results_list)[i] <- files[i]}
 
 #compute coverage proportion
 cp = function(est, se, truth) {
@@ -42,8 +52,10 @@ pivot <- function(df){
 }
 
 #pivot the data
-vppv_long <- pivot(results_list$ppv)
-vq_long <- pivot(results_list$q)
+pivoted_results_list <- vector(mode = "list", length = total_variations)
+for(i in 1:total_variations){
+  pivoted_results_list[[i]] <- pivot(results_list[[i]])
+}
 
 
 #define base plot function

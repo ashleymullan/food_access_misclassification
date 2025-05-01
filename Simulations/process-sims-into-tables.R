@@ -6,7 +6,7 @@ library(kableExtra)
 
 ##replace local_string with where you keep your github repo directory locally
 local_string <- "/Users/ashleymullan/Documents/Food-Access/"
-repo_string <- "food_access_misclassification/accre-sims/"
+repo_string <- "food_access_misclassification/Simulations/"
 setwd(paste0(local_string, repo_string))
 
 
