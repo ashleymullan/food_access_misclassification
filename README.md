@@ -25,7 +25,7 @@ The authors gratefully acknowledge [Lotspeich, Mullan, D'Agostino McGowan, and H
 - [Script (Run Simulations Locally)](https://github.com/ashleymullan/food_access_misclassification/blob/main/Simulations/one-sided-vary-q.R)
 - [Simulation Results](https://github.com/ashleymullan/food_access_misclassification/blob/main/Simulations/one-sided-vary-q.csv)
 
-**Table S1.** Simulation results under varied two-sided error rates and sampling strategies
+**Table S1.** Simulation results under varied two-sided error rates and sample sizes
 - [Script (Run Simulations Locally)](https://github.com/ashleymullan/food_access_misclassification/blob/main/Simulations/two-sided-vary-ppv.R)
 - [Simulation Results](https://github.com/ashleymullan/food_access_misclassification/blob/main/Simulations/two-sided-vary-ppv.csv)
 
