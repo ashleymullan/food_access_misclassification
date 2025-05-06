@@ -1,5 +1,5 @@
 # Linking Potentially Misclassified Healthy Food Access to Diabetes Prevalence
-This repository contains `R` code and simulation data to reproduce results from the manuscript by [Mullan, Nguyen, and Lotspeich (2025+)](arxiv-link-will-go-here). 
+This repository contains `R` code and simulation data to reproduce results from the manuscript by [Mullan, Nguyen, and Lotspeich (2025+)](https://arxiv.org/abs/2505.01465). 
 
 These simulations rely on the `possum` package, which implements the maximum likelihood approach for covariate misclassification in Poisson regression from the paper. The package can be found in its own repo [here](https://github.com/sarahlotspeich/possum) and installed in `R` as follows:
 
